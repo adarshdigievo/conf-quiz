@@ -430,6 +430,7 @@ version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "firebase-admin" },
+    { name = "google-api-core" },
     { name = "httpx" },
     { name = "jinja2" },
     { name = "pydantic" },
@@ -456,6 +457,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "firebase-admin", specifier = ">=7.1,<8" },
+    { name = "google-api-core", specifier = "<2.35" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "jinja2", specifier = ">=3.1,<4" },
     { name = "pydantic", specifier = ">=2.11,<3" },
