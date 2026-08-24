@@ -34,7 +34,7 @@ jobs:
       - run: npm test
       - run: npm run test:rules
       - run: uv run confquiz init .ci-demo
+      - run: cp .ci-demo/firebase.web.example.json .ci-demo/firebase.web.json
       - run: uv run confquiz validate .ci-demo/quiz.yml
       - run: uv run confquiz export .ci-demo/quiz.yml --output .ci-site
       - run: uv build
-
