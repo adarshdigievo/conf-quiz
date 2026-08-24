@@ -1,0 +1,98 @@
+---
+title: Troubleshooting
+guide-section: Operations
+description: Diagnose validation, Firebase, attendee, PDF, and presenter problems.
+---
+
+Start with the checks that do not change live data:
+
+```bash
+confquiz validate quiz.yml
+confquiz doctor quiz.yml --credentials /safe/path/firebase-admin.json
+```
+
+## The attendee page says no room is open
+
+Check that:
+
+- `confquiz present` is still running;
+- the presenter created a live room rather than opening only `preview`;
+- the exported site and presenter use the same Firebase `projectId`;
+- `presentation.id` matches the version used for export; and
+- the system clock on the presenter computer is correct.
+
+The public room notice uses a short-lived heartbeat. It is expected to disappear
+after the presenter process stops.
+
+## A room code is rejected
+
+- Enter the full code without spaces. Codes exclude `0`, `1`, `I`, and `O`.
+- Confirm the QR code points at the currently deployed attendee URL.
+- End stale rooms before reusing a manual code.
+- Check that Anonymous Authentication is enabled.
+- Look for App Check enforcement errors in the browser console and Firebase
+  metrics.
+
+## Answers cannot be submitted
+
+The question must be the active timeline item and voting must still be open.
+If every attendee is affected, verify the deployed Firestore rules and the
+authorized attendee hostname. If one browser is affected, try reloading before
+clearing site data; clearing it creates a new anonymous identity.
+
+## Results do not appear
+
+For presenter results, close voting or use the chart control while voting is
+open. Closed and reveal screens always show results.
+
+For attendee results, check all three gates:
+
+1. `session.show_results_on_attendee_devices` is true;
+2. the question's `attendee_visibility` allows the current phase; and
+3. `minimum_public_responses` has been reached.
+
+Text and word-cloud entries must also be approved by the presenter.
+
+## Slides do not load
+
+Run `confquiz validate` and check the PDF outside Conf Quiz. Password-protected,
+damaged, or unusually encoded PDFs may fail. For remote slides, confirm the URL
+is reachable during export and update `sha256` only after verifying the new
+file.
+
+If the PDF works in preview but not on the attendee site, inspect the browser
+network panel for the PDF and PDF.js worker paths. Re-export instead of copying
+individual files into an old site directory.
+
+## The QR code points to localhost
+
+Set `presentation.public_url` to the deployed attendee URL, then restart the
+presenter. A temporary override is also available in the presenter options
+menu. `127.0.0.1` always means the device opening the URL, so it cannot be an
+attendee address.
+
+## The presenter port is busy
+
+Choose another port:
+
+```bash
+confquiz present quiz.yml --port 8877 --credentials /safe/path/firebase-admin.json
+```
+
+The control token and presenter URL are regenerated for that process.
+
+## Credential project mismatch
+
+Conf Quiz compares the Admin credential's `project_id` with the Firebase web
+configuration. Use a key from the same project; do not bypass the check by
+copying identifiers between files.
+
+## Get command help
+
+```bash
+confquiz COMMAND --help
+confquiz firebase --help
+confquiz sessions --help
+```
+
+The [CLI reference](../reference/cli/index.html) documents every option.

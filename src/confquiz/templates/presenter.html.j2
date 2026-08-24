@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3f3f0">
+    <title>{{ title }} · Presenter</title>
+    <link rel="stylesheet" href="assets/common.css?v=1.1.0">
+    <link rel="stylesheet" href="assets/presenter.css?v=1.7.0">
+    <script src="presenter-runtime.js?token={{ token }}"></script>
+    <script type="module" src="assets/presenter.js?v=1.7.0"></script>
+  </head>
+  <body class="presenter-body">
+    <a class="skip-link" href="#stage">Skip to presentation</a>
+    <aside class="join-strip" data-join-strip hidden aria-label="Audience joining information">
+      <span>Join</span>
+      <strong data-join-code>—</strong>
+      <span data-join-url></span>
+      <button type="button" data-hide-join-strip aria-label="Hide joining information">×</button>
+    </aside>
+    <main id="stage" class="presenter-stage" tabindex="-1">
+      <section class="stage-surface" data-stage aria-live="polite">
+        <div class="stage-loading">
+          <span class="loading-orbit" aria-hidden="true"></span>
+          <p>Preparing the room…</p>
+        </div>
+      </section>
+
+      <aside class="join-overlay" data-join-overlay hidden aria-label="Audience join information">
+        <button class="join-overlay-close" type="button" data-close-join aria-label="Close join screen">×</button>
+        <div class="join-overlay-copy">
+          <p class="eyebrow">Join the live room</p>
+          <strong class="join-code" data-join-code>—</strong>
+          <p data-join-url></p>
+        </div>
+        <div class="join-qr-panel">
+          <img data-qr alt="QR code containing the audience join link">
+          <p>Scan with your phone camera</p>
+        </div>
+      </aside>
+
+      <aside class="moderation-panel" data-moderation hidden aria-labelledby="moderation-title">
+        <div class="panel-heading-row">
+          <div><p class="eyebrow">Moderation</p><h2 id="moderation-title">Audience responses</h2></div>
+          <button class="icon-button" type="button" data-close-moderation aria-label="Close moderation panel">×</button>
+        </div>
+        <p class="panel-help">Only approved responses appear on attendee screens and the projector.</p>
+        <div class="moderation-list" data-moderation-list></div>
+      </aside>
+    </main>
+
+    <footer class="presenter-controls" aria-label="Presentation controls">
+      <div class="control-cluster">
+        <button class="control-button" type="button" data-action="previous" aria-label="Previous item">
+          <svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#arrow-left"></use></svg><span>Back</span>
+        </button>
+        <button class="control-button control-button-primary" type="button" data-action="next">
+          <span data-next-label>Next</span><svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#arrow-right"></use></svg>
+        </button>
+      </div>
+      <div class="presenter-deck-status">
+        <div class="presenter-deck-line">
+          <span class="connection-pill" data-connection>Connecting</span>
+          <span class="presenter-deck-count presenter-participant-count"><strong data-participants>0</strong> joined</span>
+          <span class="presenter-deck-count presenter-response-count"><strong data-response-count>0</strong> answers</span>
+        </div>
+        <div class="timeline-meter" aria-label="Presentation progress">
+          <span data-progress-label>1</span><i><b data-progress-bar></b></i>
+        </div>
+      </div>
+      <div class="control-cluster control-cluster-secondary">
+        <button class="icon-button" type="button" data-toggle-results aria-label="Show live results"
+          aria-pressed="false" title="Show live results">
+          <svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#bar-chart-line"></use></svg>
+        </button>
+        <button class="icon-button" type="button" data-toggle-moderation hidden aria-label="Moderate text responses">
+          <svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#chat-square-text"></use></svg>
+        </button>
+        <button class="icon-button" type="button" data-toggle-join-strip aria-label="Show joining information"
+          aria-pressed="false" title="Show joining information">
+          <svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#link-45deg"></use></svg>
+        </button>
+        <button class="icon-button" type="button" data-toggle-join aria-label="Show join code">
+          <svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#qr-code"></use></svg>
+        </button>
+        <button class="icon-button" type="button" data-fullscreen aria-label="Toggle fullscreen">
+          <svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#arrows-fullscreen"></use></svg>
+        </button>
+        <button class="icon-button fullscreen-only-control" type="button" data-toggle-chrome aria-label="Hide presenter controls"
+          aria-pressed="false" title="Hide presenter controls (H)">
+          <svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#arrows-angle-contract"></use></svg>
+        </button>
+        <details class="session-menu">
+          <summary class="icon-button" aria-label="Session actions">
+            <svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#three-dots"></use></svg>
+          </summary>
+          <div class="session-menu-popover">
+            <section class="theme-picker" aria-labelledby="presenter-theme-label">
+              <p id="presenter-theme-label">Theme</p>
+              <div class="theme-options" role="radiogroup" aria-labelledby="presenter-theme-label">
+                <button type="button" role="radio" data-theme-option="light" aria-checked="true">
+                  <span class="theme-swatch theme-swatch-light" aria-hidden="true"></span>Light
+                </button>
+                <button type="button" role="radio" data-theme-option="dark" aria-checked="false">
+                  <span class="theme-swatch theme-swatch-dark" aria-hidden="true"></span>Dark
+                </button>
+                <button type="button" role="radio" data-theme-option="grey" aria-checked="false">
+                  <span class="theme-swatch theme-swatch-grey" aria-hidden="true"></span>Grey
+                </button>
+                <button type="button" role="radio" data-theme-option="navy" aria-checked="false">
+                  <span class="theme-swatch theme-swatch-navy" aria-hidden="true"></span>Navy
+                </button>
+                <button type="button" role="radio" data-theme-option="warm" aria-checked="false">
+                  <span class="theme-swatch theme-swatch-warm" aria-hidden="true"></span>Warm
+                </button>
+                <button type="button" role="radio" data-theme-option="ocean" aria-checked="false">
+                  <span class="theme-swatch theme-swatch-ocean" aria-hidden="true"></span>Ocean
+                </button>
+                <button type="button" role="radio" data-theme-option="forest" aria-checked="false">
+                  <span class="theme-swatch theme-swatch-forest" aria-hidden="true"></span>Forest
+                </button>
+              </div>
+            </section>
+            <button class="session-menu-action" type="button" data-toggle-slide-sharing
+              aria-label="Share slides with attendees" aria-pressed="false" title="Share slides with attendees">
+              <svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#phone"></use></svg>
+              <span data-slide-sharing-label>Share slides with attendees</span>
+            </button>
+            <form class="attendee-url-form" data-attendee-url-form>
+              <label for="attendee-site-url">Attendee site URL</label>
+              <input id="attendee-site-url" data-attendee-url type="url" required
+                placeholder="https://speaker.github.io/talk/">
+              <small data-attendee-url-help>The QR code uses this public static site.</small>
+              <button type="submit">Save attendee URL</button>
+            </form>
+            <button type="button" data-action="reset_question">Reset current question</button>
+            <button type="button" data-action="restart">Restart and clear responses</button>
+            <button type="button" data-action="new_session">Generate new room code</button>
+            <button class="danger-action" type="button" data-action="end_session">End session</button>
+          </div>
+        </details>
+      </div>
+    </footer>
+    <div class="toast-region" data-toasts aria-live="assertive"></div>
+    <button class="chrome-restore-button" type="button" data-restore-chrome
+      aria-label="Show presenter controls" title="Show presenter controls (H)">
+      <svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#arrows-angle-expand"></use></svg>
+    </button>
+    <button class="floating-results-button" type="button" data-toggle-results
+      aria-label="Show live results" aria-pressed="false" title="Show live results">
+      <svg aria-hidden="true"><use href="assets/bootstrap-icons.svg#bar-chart-line"></use></svg>
+    </button>
+  </body>
+</html>

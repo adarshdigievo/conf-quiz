@@ -1,0 +1,129 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function sessionPath(sessionId) {
+      return /databases/$(database)/documents/confquiz_sessions/$(sessionId);
+    }
+
+    function questionPath(sessionId, questionId) {
+      return /databases/$(database)/documents/confquiz_sessions/$(sessionId)/questions/$(questionId);
+    }
+
+    function activeSession(sessionId, questionId) {
+      let session = get(sessionPath(sessionId)).data;
+      return session.status == 'running'
+        && session.phase == 'open'
+        && session.activeQuestionId == questionId
+        && session.expiresAt > request.time;
+    }
+
+    function answerShapeIsValid(sessionId, questionId) {
+      let question = get(questionPath(sessionId, questionId)).data;
+      let answer = request.resource.data.answer;
+      return (
+          question.type == 'single_choice'
+          && answer is string
+          && answer in question.optionIds
+        ) || (
+          question.type == 'multiple_choice'
+          && answer is list
+          && answer.size() > 0
+          && answer.size() <= question.max_selections
+          && answer.toSet().size() == answer.size()
+          && answer.hasOnly(question.optionIds)
+        ) || (
+          question.type == 'yes_no'
+          && answer is string
+          && answer in ['yes', 'no']
+        ) || (
+          question.type in ['slider', 'rating', 'number']
+          && answer is number
+          && answer >= question.min
+          && answer <= question.max
+          && (question.step == null || (answer - question.min) % question.step == 0)
+        ) || (
+          question.type == 'ranking'
+          && answer is list
+          && answer.size() == question.optionIds.size()
+          && answer.toSet().size() == answer.size()
+          && answer.hasOnly(question.optionIds)
+        ) || (
+          question.type in ['free_text', 'word_cloud']
+          && answer is string
+          && answer.size() > 0
+          && answer.size() <= question.max_length
+        );
+    }
+
+    match /confquiz_join_codes/{code} {
+      allow get: if signedIn() && resource.data.status == 'running' && resource.data.expiresAt > request.time;
+      allow list, create, update, delete: if false;
+    }
+
+    match /confquiz_presentations/{presentationId} {
+      allow get: if true;
+      allow list, create, update, delete: if false;
+    }
+
+    match /confquiz_sessions/{sessionId} {
+      allow get: if signedIn() && resource.data.expiresAt > request.time;
+      allow list, create, update, delete: if false;
+
+      match /participants/{participantId} {
+        allow get: if signedIn() && request.auth.uid == participantId;
+        allow list, delete: if false;
+        allow create: if signedIn()
+          && request.auth.uid == participantId
+          && request.resource.data.keys().hasOnly(['joinedAt', 'lastSeen'])
+          && request.resource.data.joinedAt == request.time
+          && request.resource.data.lastSeen == request.time;
+        allow update: if signedIn()
+          && request.auth.uid == participantId
+          && request.resource.data.keys().hasOnly(['joinedAt', 'lastSeen'])
+          && request.resource.data.joinedAt == resource.data.joinedAt
+          && request.resource.data.lastSeen == request.time;
+      }
+
+      match /questions/{questionId} {
+        allow get: if signedIn() && get(sessionPath(sessionId)).data.expiresAt > request.time;
+        allow list, create, update, delete: if false;
+
+        match /responses/{participantId} {
+          allow get: if signedIn() && request.auth.uid == participantId;
+          allow list, delete: if false;
+          allow create: if signedIn()
+            && request.auth.uid == participantId
+            && activeSession(sessionId, questionId)
+            && request.resource.data.keys().hasOnly(['answer', 'submittedAt'])
+            && request.resource.data.submittedAt == request.time
+            && answerShapeIsValid(sessionId, questionId);
+          allow update: if signedIn()
+            && request.auth.uid == participantId
+            && activeSession(sessionId, questionId)
+            && get(sessionPath(sessionId)).data.allowAnswerChanges == true
+            && request.resource.data.keys().hasOnly(['answer', 'submittedAt'])
+            && request.resource.data.submittedAt == request.time
+            && answerShapeIsValid(sessionId, questionId);
+        }
+      }
+
+      match /aggregates/{questionId} {
+        allow get: if signedIn() && get(sessionPath(sessionId)).data.expiresAt > request.time;
+        allow list, create, update, delete: if false;
+      }
+
+      match /moderation/{questionId} {
+        allow read, write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

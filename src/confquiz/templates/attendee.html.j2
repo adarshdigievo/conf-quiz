@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="{{ accent }}" data-attendee-theme-color>
+    <meta name="description" content="Follow the conference presentation and join its live questions.">
+    <title>{{ title }} · Interactive presentation</title>
+    <link rel="stylesheet" href="{{ asset_prefix }}assets/common.css?v=1.1.0">
+    <link rel="stylesheet" href="{{ asset_prefix }}assets/attendee.css?v=1.6.0">
+    <script src="{{ asset_prefix }}runtime-config.js"></script>
+    <script type="module" src="{{ asset_prefix }}assets/attendee.js?v=1.6.0"></script>
+  </head>
+  <body class="attendee-body">
+    <a class="skip-link" href="#app">Skip to content</a>
+    <header class="attendee-header">
+      <a class="wordmark" href="./" aria-label="Conf Quiz home">Live quiz</a>
+      <div class="attendee-header-actions">
+        <span class="connection-pill" data-connection>Not connected</span>
+        <button class="attendee-theme-toggle" type="button" data-attendee-theme-toggle
+          aria-label="Use dark theme" aria-pressed="false" title="Use dark theme">
+          <svg aria-hidden="true"><use data-attendee-theme-icon href="{{ asset_prefix }}assets/bootstrap-icons.svg#moon-stars"></use></svg>
+        </button>
+      </div>
+    </header>
+    <main id="app" class="attendee-shell" tabindex="-1">
+      <section class="join-card" data-view="join" aria-label="Interactive presentation">
+        <div class="join-panel" data-join-panel hidden>
+          <p class="eyebrow">Room open</p>
+          <h1 id="join-heading">Join the live question</h1>
+          <p class="lede">Enter the code on screen. Responses are anonymous.</p>
+          <form class="join-form" data-join-form>
+            <label for="join-code">Room code</label>
+            <div class="join-field-row">
+              <input id="join-code" name="code" type="text" inputmode="text" autocomplete="one-time-code"
+                autocapitalize="characters" spellcheck="false" minlength="4" maxlength="12" placeholder="ABC123" required>
+              <button class="primary-button" type="submit">Join</button>
+            </div>
+            <p class="form-message" data-join-message role="alert"></p>
+          </form>
+        </div>
+
+        <div class="home-intro" data-home-intro>
+          <p class="eyebrow">Interactive presentation</p>
+          <h1 id="home-heading">{{ title }}</h1>
+          <p>Follow the presentation here. You can join once the speaker opens the room.</p>
+        </div>
+
+        <section class="home-slide-shell" data-home-slide-shell aria-label="Presentation preview">
+          <div class="home-slide-topline">
+            <span>Slide 1</span>
+            <button class="home-slide-fullscreen" type="button" data-home-slide-fullscreen
+              aria-label="Show slide fullscreen" aria-pressed="false" title="Full screen">
+              <svg aria-hidden="true"><use href="{{ asset_prefix }}assets/bootstrap-icons.svg#arrows-fullscreen"></use></svg>
+              <span>Full screen</span>
+            </button>
+          </div>
+          <div class="home-slide-stage" data-home-slide-stage>
+            <span class="shared-slide-loading">Loading slide 1…</span>
+          </div>
+        </section>
+      </section>
+
+      <section class="live-card" data-view="live" hidden aria-live="polite">
+        <div class="live-card-topline">
+          <div>
+            <p class="eyebrow" data-room-label>Room</p>
+            <h1 data-presentation-title>{{ title }}</h1>
+          </div>
+          <button class="text-button" type="button" data-leave>Leave</button>
+        </div>
+        <div data-live-content></div>
+      </section>
+    </main>
+    <noscript>This application requires JavaScript to join a live question.</noscript>
+  </body>
+</html>

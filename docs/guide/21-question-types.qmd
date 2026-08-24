@@ -1,0 +1,176 @@
+---
+title: Question types
+guide-section: Run the presentation
+description: YAML examples and answer-key rules for every supported question type.
+---
+
+Every question needs a unique `id`, a PDF page in `after_slide`, a `type`, and a
+`prompt`. Questions that use choices also need stable option IDs.
+
+## Single choice
+
+```yaml
+- id: preferred-runtime
+  after_slide: 2
+  type: single_choice
+  prompt: "Which runtime do you use most?"
+  options:
+    - { id: cpython, label: "CPython" }
+    - { id: pypy, label: "PyPy" }
+    - { id: other, label: "Another runtime" }
+  correct: cpython
+```
+
+`correct` is optional and must be one option ID.
+
+## Multiple choice
+
+```yaml
+- id: quality-checks
+  after_slide: 4
+  type: multiple_choice
+  prompt: "Which checks run before merge?"
+  max_selections: 3
+  options:
+    - { id: tests, label: "Tests" }
+    - { id: lint, label: "Lint" }
+    - { id: types, label: "Type checks" }
+    - { id: security, label: "Security scan" }
+  correct: [tests, lint, types]
+```
+
+The answer may be changed while voting is open when
+`session.allow_answer_changes` is true.
+
+## Yes or no
+
+```yaml
+- id: uses-type-hints
+  after_slide: 5
+  type: yes_no
+  prompt: "Does your production code use type hints?"
+  correct: "yes"
+```
+
+The valid correct values are the strings `yes` and `no`.
+
+## Slider
+
+```yaml
+- id: confidence
+  after_slide: 6
+  type: slider
+  prompt: "How confident are you with async Python?"
+  min: 0
+  max: 10
+  step: 1
+  labels: { min: "New to it", max: "Very confident" }
+```
+
+Slider defaults are 0–10 with a step of 1. A numeric `correct` value is
+supported when it follows the configured range and step.
+
+## Rating
+
+```yaml
+- id: pace
+  after_slide: 7
+  type: rating
+  prompt: "How is the pace?"
+  min: 1
+  max: 5
+  step: 1
+```
+
+Rating defaults are 1–5 with a step of 1.
+
+## Number
+
+```yaml
+- id: timeout
+  after_slide: 8
+  type: number
+  prompt: "What timeout would you choose in milliseconds?"
+  min: 1
+  max: 10000
+  step: 1
+  correct: { value: 500, tolerance: 50 }
+```
+
+Number questions require `min` and `max`. A correct answer may be a single
+number or an object with `value` and a non-negative `tolerance`.
+
+## Ranking
+
+```yaml
+- id: priorities
+  after_slide: 9
+  type: ranking
+  prompt: "Rank these production priorities."
+  options:
+    - { id: reliability, label: "Reliability" }
+    - { id: speed, label: "Delivery speed" }
+    - { id: cost, label: "Cost" }
+```
+
+Attendees move choices up and down. Ranking questions do not support a correct
+answer.
+
+## Free text
+
+```yaml
+- id: next-step
+  after_slide: 10
+  type: free_text
+  prompt: "What will you try next?"
+  max_length: 240
+  placeholder: "One practical next step"
+  results:
+    display: cards
+    attendee_visibility: after_close
+```
+
+Text answers enter the presenter moderation queue. They are not included in
+public results until approved.
+
+## Word cloud
+
+```yaml
+- id: takeaway
+  after_slide: 11
+  type: word_cloud
+  prompt: "Describe your main takeaway in a few words."
+  max_length: 80
+  results:
+    display: word_cloud
+    attendee_visibility: after_close
+```
+
+Word-cloud entries use the same moderation path as free text.
+
+## Result settings
+
+Every type accepts a `results` object:
+
+```yaml
+results:
+  display: bars
+  attendee_visibility: live
+  show_mean: true
+  show_median: true
+```
+
+Available displays are `bars`, `histogram`, `summary`, `ranking`, `cards`, and
+`word_cloud`. Conf Quiz chooses a suitable display when it is omitted.
+
+Attendee visibility can be:
+
+| Value | Result timing |
+|---|---|
+| `live` | While voting is open and afterwards |
+| `after_close` | After voting closes |
+| `after_reveal` | Only after a configured correct answer is revealed |
+| `never` | Presenter only |
+
+See [Results and moderation](22-results-and-moderation.qmd) for session-wide
+controls and privacy behavior.

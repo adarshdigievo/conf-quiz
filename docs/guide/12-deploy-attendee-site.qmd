@@ -1,0 +1,138 @@
+---
+title: Deploy the attendee site
+guide-section: Set up a live room
+description: Export the static attendee app and publish it with GitHub Pages.
+---
+
+The attendee app is static HTML, CSS, JavaScript, and the presentation PDF. It
+can run on GitHub Pages or another HTTPS static host. The presenter remains on
+the speaker computer.
+
+## Export
+
+```bash
+confquiz validate quiz.yml
+confquiz export quiz.yml --output site
+```
+
+The output includes `.nojekyll` and uses relative asset paths, so it works under
+a GitHub Pages repository path. The export contains the Firebase web
+configuration and attendee-safe presentation data. It does not contain the
+Admin credential, answer keys, or the complete question schedule.
+
+## Publish a presentation repository
+
+Set the final address in `quiz.yml`:
+
+```yaml
+presentation:
+  public_url: "https://your-account.github.io/my-talk/"
+```
+
+In the presentation repository, create an Actions secret named
+`FIREBASE_WEB_CONFIG` and paste the complete JSON object from your own Firebase
+web app. The workflow creates the ignored `firebase.web.json` only on the build
+runner.
+
+Add this workflow as `.github/workflows/pages.yml` in the presentation
+repository:
+
+```yaml
+name: Deploy attendee site
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "quiz.yml"
+      - "slides.pdf"
+      - "uv.lock"
+      - "pyproject.toml"
+      - ".github/workflows/pages.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: attendee-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --locked
+      - name: Write speaker Firebase web config
+        env:
+          FIREBASE_WEB_CONFIG: ${{ secrets.FIREBASE_WEB_CONFIG }}
+        run: |
+          test -n "$FIREBASE_WEB_CONFIG"
+          printf '%s' "$FIREBASE_WEB_CONFIG" > firebase.web.json
+      - run: uv run confquiz export quiz.yml --output site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+```
+
+In the GitHub repository, open **Settings → Pages** and choose **GitHub
+Actions** as the source.
+
+The secret prevents the Firebase configuration from being committed or reused
+by another presentation repository. It is not a substitute for Firestore Rules
+or App Check: the exported attendee site necessarily contains these browser
+identifiers.
+
+## Authorized domains
+
+Add the attendee hostname to Firebase Authentication's authorized domains and
+to the reCAPTCHA Enterprise/App Check configuration. For a project page, the
+hostname is `your-account.github.io`; the repository path is not part of the
+authorized-domain entry.
+
+## Check the homepage before the event
+
+Open the deployed URL without a room code. It should show PDF page 1 as the main
+content and a short note that the page becomes interactive when the speaker
+opens a room.
+
+Start `confquiz present`, reload the deployed page, and confirm that:
+
+- the join panel appears above the slide;
+- the QR code opens the deployed URL with `?code=...`;
+- an attendee can submit one answer; and
+- closing voting updates results on both screens as configured.
+
+The presenter writes a short-lived presentation heartbeat. If the presenter
+process disappears, the public homepage stops advertising the room after the
+heartbeat expires.
+
+## Local network check
+
+You may serve an export on the conference network:
+
+```bash
+python -m http.server 8766 --bind 0.0.0.0 --directory site
+```
+
+Use the computer's LAN address in `presentation.public_url`, not `127.0.0.1`.
+Some Firebase and App Check features require HTTPS, so GitHub Pages is the safer
+final rehearsal target.

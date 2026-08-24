@@ -1,0 +1,84 @@
+[build-system]
+requires = ["uv_build>=0.11.2,<0.12"]
+build-backend = "uv_build"
+
+[project]
+name = "conf-quiz"
+version = "1.0.0"
+description = "Run PDF presentations with anonymous live audience questions."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Adarsh" }]
+keywords = ["conference", "quiz", "presentation", "firebase", "pdf"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Web Environment",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Education",
+  "Topic :: Multimedia :: Graphics :: Presentation",
+]
+dependencies = [
+  "firebase-admin>=7.1,<8",
+  "httpx>=0.28,<1",
+  "jinja2>=3.1,<4",
+  "pydantic>=2.11,<3",
+  "pypdf>=6.0,<7",
+  "pyyaml>=6.0,<7",
+  "segno>=1.6,<2",
+  "starlette>=1.3.1,<2",
+  # Great Docs 0.16 introspects Click command trees. Typer 0.20+ vendors its
+  # own Click classes, which leaves generated subcommand reference pages empty.
+  "typer>=0.19,<0.20",
+  "uvicorn[standard]>=0.35,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.1,<2",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+confquiz = "confquiz.cli:app"
+
+[project.urls]
+Documentation = "https://adarshdigievo.github.io/conf-quiz/"
+Repository = "https://github.com/adarshdigievo/conf-quiz"
+Issues = "https://github.com/adarshdigievo/conf-quiz/issues"
+
+[tool.uv.build-backend]
+module-name = "confquiz"
+source-include = [
+  ".gitignore",
+  "examples/**",
+  "docs/**",
+  "great-docs.yml",
+  "firebase.json",
+  "firestore.rules",
+  "firestore.indexes.json",
+  "THIRD_PARTY_NOTICES.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[dependency-groups]
+docs = [
+  "great-docs>=0.16,<0.17 ; python_full_version >= '3.11'",
+]

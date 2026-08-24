@@ -1,0 +1,54 @@
+---
+title: Conf Quiz
+guide-section: Getting started
+description: Add anonymous audience questions to a PDF conference presentation.
+---
+
+Conf Quiz runs a PDF presentation and anonymous audience questions on the same
+timeline. A question appears immediately after its configured slide; when it is
+finished, the presenter continues with the next page.
+
+The speaker uses a local presenter view. Attendees use a static site on their
+phones, usually hosted on GitHub Pages. Firebase carries room state, responses,
+and published results between the two.
+
+## What it is for
+
+Conf Quiz is designed for conference talks, workshops, and community sessions
+where the speaker wants feedback without turning the room into a competition.
+It has no accounts, points, or leaderboard.
+
+You can:
+
+- poll the room with choice, range, rating, number, and ranking questions;
+- collect free text and word-cloud responses with presenter moderation;
+- mark a question as having a correct answer, then reveal it without awarding
+  points;
+- decide whether attendees see results live, after voting closes, after the
+  reveal, or never;
+- let each attendee switch independently between the light and dark interface;
+- share the current PDF page to attendee devices; and
+- restart or replace a room from the presenter computer.
+
+## How a presentation runs
+
+1. Prepare a PDF and a `quiz.yml` file.
+2. Rehearse both screens with `confquiz preview`.
+3. Export and publish the attendee site.
+4. Start `confquiz present` on the speaker computer.
+5. Show the QR code when the audience is ready to join.
+
+The presenter service is not deployed. It uses Firebase Admin credentials on
+the speaker's computer and sends only attendee-safe data to Firestore.
+
+## Start here
+
+- [Install Conf Quiz](user-guide/installation.html)
+- [Build your first quiz](user-guide/first-quiz.html)
+- [Configure Firebase](user-guide/firebase-setup.html)
+- [Publish the attendee site](user-guide/deploy-attendee-site.html)
+
+:::{.callout-note}
+The local preview does not need Firebase. Use it while writing questions and
+checking the slide order.
+:::

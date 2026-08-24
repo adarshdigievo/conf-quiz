@@ -1,0 +1,11 @@
+---
+title: Examples
+description: Small question sets that can be copied into a presentation configuration.
+---
+
+These examples contain only the `questions` portion of `quiz.yml`. Combine them
+with the presentation, Firebase, and session settings from
+[Your first quiz](../../user-guide/first-quiz.html).
+
+Each question ID must be unique in the final file, and every `after_slide` value
+must refer to a page that exists in the PDF.

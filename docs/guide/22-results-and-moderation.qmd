@@ -1,0 +1,74 @@
+---
+title: Results and moderation
+guide-section: Run the presentation
+description: Control result timing, minimum response counts, and public text.
+---
+
+Presenter results and attendee results have separate controls. This lets the
+speaker watch the room without publishing a changing chart to every phone.
+
+## Presenter behavior
+
+`session.show_results_on_presenter` sets the initial behavior while voting is
+open. The chart button can override it for the current question.
+
+Conf Quiz always shows the participant count to the presenter. When voting
+closes or a correct answer is revealed, the presenter view always shows:
+
+- joined participants;
+- submitted answers; and
+- the result visualization.
+
+This closed-voting behavior is not affected by hiding live results.
+
+## Attendee behavior
+
+The session switch must be on:
+
+```yaml
+session:
+  show_results_on_attendee_devices: true
+```
+
+Then each question selects `live`, `after_close`, `after_reveal`, or `never`.
+If the session switch is off, no question publishes results to attendee
+screens.
+
+Use a response threshold to avoid drawing conclusions from one early answer:
+
+```yaml
+session:
+  minimum_public_responses: 5
+```
+
+The presenter still sees the actual counts below the threshold.
+
+## Correct answers
+
+Adding `correct` creates a reveal step for supported question types. It does not
+create points, a score, or a leaderboard. The exported attendee bundle does not
+contain the answer key; the presenter publishes it only during the reveal
+phase.
+
+## Text moderation
+
+Free-text and word-cloud responses are private when submitted. In the
+presenter moderation drawer, approve entries that may appear publicly and hide
+anything unsuitable.
+
+Moderation decisions are stored separately from raw responses. The public
+aggregate contains only approved text. Attendee clients cannot read the raw
+response collection or moderation records.
+
+For sensitive topics, set `attendee_visibility: never` and discuss selected
+responses verbally instead of publishing them.
+
+## Interpreting counts
+
+The participant count represents anonymous authenticated browser profiles that
+joined the room. It is not an attendance register. The answer count is the
+number of response documents for the active question.
+
+An attendee who reloads in the same browser profile keeps the same anonymous
+Firebase identity. Clearing site data, using another browser, or using another
+device creates another identity.

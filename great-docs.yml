@@ -1,0 +1,53 @@
+module: confquiz
+display_name: Conf Quiz
+parser: numpy
+dynamic: true
+
+repo: https://github.com/adarshdigievo/conf-quiz
+site_url: https://adarshdigievo.github.io/conf-quiz/
+github_style: icon
+
+authors:
+  - name: Adarsh
+    role: Maintainer
+    github: adarshdigievo
+
+homepage: user_guide
+user_guide: docs/guide
+reference:
+  - title: Programmatic API
+    desc: Load a validated configuration or export an attendee site from Python.
+    contents:
+      - config.load_quiz_config
+      - build.export_static_site
+markdown_pages: true
+changelog:
+  enabled: false
+
+accent_color:
+  light: "#df4b2f"
+  dark: "#ff765a"
+navbar_color:
+  light: "#111111"
+  dark: "#111111"
+
+cli:
+  enabled: true
+  module: confquiz.cli
+  name: docs_cli
+  title: CLI reference
+  desc: Commands for creating, rehearsing, exporting, and running a presentation.
+  sections:
+    - title: Create and check
+      contents: [init, validate, doctor]
+    - title: Rehearse and present
+      contents: [preview, export, present]
+    - title: Firebase and sessions
+      contents: [firebase, sessions]
+
+sections:
+  - title: Examples
+    dir: docs/examples
+    index: true
+    index_columns: 2
+    navbar_after: User Guide

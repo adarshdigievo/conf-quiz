@@ -1,0 +1,40 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci
+      - run: npm run build
+      - run: uv sync --extra dev --locked
+      - run: uv run ruff check .
+      - run: uv run pytest
+      - run: npm test
+      - run: npm run test:rules
+      - run: uv run confquiz init .ci-demo
+      - run: uv run confquiz validate .ci-demo/quiz.yml
+      - run: uv run confquiz export .ci-demo/quiz.yml --output .ci-site
+      - run: uv build
+

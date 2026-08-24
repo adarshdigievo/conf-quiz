@@ -1,0 +1,111 @@
+schema_version: 1
+
+presentation:
+  id: conf-quiz-demo
+  title: "A live conference conversation"
+  speaker: "Your name"
+  public_url: "https://your-account.github.io/my-talk/"
+  slides:
+    source: "sample-slides.pdf"
+    fetch_during_export: true
+  theme:
+    preset: light
+    accent: "#ff5a36"
+    background: "#101310"
+
+firebase:
+  web_config: "firebase.web.json"
+  app_check_site_key: null
+  namespace: "confquiz"
+
+session:
+  join_code:
+    mode: generated
+    length: 6
+  allow_answer_changes: true
+  show_results_on_presenter: false
+  show_results_on_attendee_devices: true
+  share_slides_with_attendees: false
+  minimum_public_responses: 1
+  retention_hours: 168
+
+questions:
+  - id: single-choice
+    after_slide: 1
+    type: single_choice
+    prompt: "Which topic should we explore first?"
+    options:
+      - { id: architecture, label: "Architecture" }
+      - { id: evaluation, label: "Evaluation" }
+      - { id: deployment, label: "Deployment" }
+    correct: architecture
+
+  - id: multiple-choice
+    after_slide: 2
+    type: multiple_choice
+    prompt: "Which tools have you used?"
+    max_selections: 2
+    options:
+      - { id: python, label: "Python" }
+      - { id: javascript, label: "JavaScript" }
+      - { id: rust, label: "Rust" }
+
+  - id: yes-or-no
+    after_slide: 3
+    type: yes_no
+    prompt: "Have you shipped an AI feature to production?"
+    correct: "yes"
+
+  - id: confidence-slider
+    after_slide: 4
+    type: slider
+    prompt: "How confident are you about production readiness?"
+    min: 0
+    max: 10
+    step: 1
+    labels: { min: "Not yet", max: "Very" }
+
+  - id: session-rating
+    after_slide: 5
+    type: rating
+    prompt: "How useful is this section?"
+    min: 1
+    max: 5
+    step: 1
+
+  - id: numeric-estimate
+    after_slide: 6
+    type: number
+    prompt: "How many milliseconds is your target latency?"
+    min: 1
+    max: 10000
+    step: 1
+    correct: { value: 500, tolerance: 50 }
+
+  - id: priority-ranking
+    after_slide: 7
+    type: ranking
+    prompt: "Rank these production priorities."
+    options:
+      - { id: reliability, label: "Reliability" }
+      - { id: speed, label: "Speed" }
+      - { id: cost, label: "Cost" }
+
+  - id: open-reflection
+    after_slide: 8
+    type: free_text
+    prompt: "What is one thing you will try next?"
+    max_length: 240
+    placeholder: "Your anonymous response"
+    results:
+      display: cards
+      attendee_visibility: live
+
+  - id: cloud-prompt
+    after_slide: 9
+    type: word_cloud
+    prompt: "Describe the talk in a few words."
+    max_length: 120
+    results:
+      display: word_cloud
+      attendee_visibility: live

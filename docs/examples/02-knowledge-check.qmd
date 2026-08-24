@@ -1,0 +1,37 @@
+---
+title: Knowledge check
+description: Reveal correct answers without points or a leaderboard.
+---
+
+Adding `correct` creates a separate answer-reveal screen.
+
+```yaml
+questions:
+  - id: retry-policy
+    after_slide: 5
+    type: multiple_choice
+    prompt: "Which failures are usually safe to retry?"
+    max_selections: 2
+    options:
+      - { id: timeout, label: "A transient timeout" }
+      - { id: throttled, label: "A rate-limit response with backoff" }
+      - { id: invalid, label: "Invalid input" }
+      - { id: unauthorized, label: "Missing authorization" }
+    correct: [timeout, throttled]
+    results:
+      attendee_visibility: after_reveal
+
+  - id: timeout-value
+    after_slide: 7
+    type: number
+    prompt: "What timeout did the example use, in milliseconds?"
+    min: 100
+    max: 5000
+    step: 50
+    correct: { value: 500, tolerance: 50 }
+    results:
+      attendee_visibility: after_reveal
+```
+
+Advance once to close voting and show the distribution to the presenter. Advance
+again to publish the correct answer. No attendee identity or score is stored.

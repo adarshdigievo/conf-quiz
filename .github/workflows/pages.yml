@@ -1,0 +1,76 @@
+name: Deploy documentation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "src/**"
+      - "scripts/verify-docs.py"
+      - "README.md"
+      - "great-docs.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "src/**"
+      - "scripts/verify-docs.py"
+      - "README.md"
+      - "great-docs.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/pages.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v7
+      - uses: quarto-dev/quarto-actions/setup@v2
+      - run: uv sync --locked --group docs
+      - run: uv run --group docs great-docs build
+      - run: uv run python scripts/verify-docs.py great-docs/_site
+      - uses: actions/upload-artifact@v7
+        with:
+          name: docs-html
+          path: great-docs/_site
+          include-hidden-files: true
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: docs-html
+          path: great-docs/_site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: great-docs/_site
+          include-hidden-files: true
+      - id: deployment
+        uses: actions/deploy-pages@v5

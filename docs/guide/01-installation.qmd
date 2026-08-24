@@ -1,0 +1,83 @@
+---
+title: Installation
+guide-section: Getting started
+description: Install the Conf Quiz command and check the local environment.
+---
+
+Conf Quiz supports Python 3.10 and newer. Node.js is not required when using the
+published Python package; its browser files are already built.
+
+## Install the command
+
+With pip:
+
+```bash
+pip install conf-quiz
+```
+
+With uv, install it as an isolated command-line tool:
+
+```bash
+uv tool install conf-quiz
+```
+
+Check the installation:
+
+```bash
+confquiz --help
+```
+
+## Create a project-local environment
+
+If you prefer to keep the package with a presentation repository:
+
+```bash
+uv init --bare my-talk
+cd my-talk
+uv add conf-quiz
+uv run confquiz init .
+```
+
+Use `uv run confquiz ...` for the remaining commands in that repository.
+
+## Files created by `init`
+
+```bash
+confquiz init my-talk
+```
+
+creates:
+
+| File | Purpose |
+|---|---|
+| `quiz.yml` | Presentation, session, and question configuration |
+| `sample-slides.pdf` | Twelve blank pages to make the example immediately runnable |
+| `firebase.web.example.json` | Shape of the public Firebase web configuration |
+| `.gitignore` | Excludes local Firebase configuration, credentials, and build output |
+
+Replace `sample-slides.pdf` with your deck. Create the local Firebase file before
+validating a live configuration:
+
+```bash
+cp firebase.web.example.json firebase.web.json
+```
+
+`firebase.web.example.json` is safe to commit because it contains placeholders.
+`firebase.web.json` is ignored by Git and belongs to the speaker's Firebase
+project.
+
+`init` leaves existing files alone. Pass `--force` only when you intentionally
+want to replace the generated examples.
+
+## Presenter system requirements
+
+For a live room, the presenter computer also needs:
+
+- network access to Firebase;
+- a Firebase Admin service-account JSON file or Application Default
+  Credentials; and
+- a modern browser for the presenter view.
+
+The exported attendee site needs only static HTTPS hosting and a browser.
+
+Continue with [Your first quiz](02-first-quiz.qmd).

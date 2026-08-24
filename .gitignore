@@ -1,0 +1,39 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+*.orig
+*.rej
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+site/
+node_modules/
+*.egg-info/
+
+# Firebase Admin credentials are private and must never be packaged or tracked.
+*firebase-adminsdk*.json
+firebase-admin.json
+
+# Each speaker supplies their own Firebase web app configuration locally.
+firebase.web.json
+!firebase.web.example.json
+
+# Disposable local/live test configuration.
+quiz.live.yml
+local-demo/
+
+# Great Docs build directory (ephemeral, do not commit)
+great-docs/
+
+# Great Docs versioned-build artifacts
+_great_docs_build/
+.great-docs-build/
+.great-docs-cache/
+.great-docs/

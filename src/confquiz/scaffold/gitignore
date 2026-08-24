@@ -1,0 +1,14 @@
+# Conf Quiz speaker-local Firebase configuration.
+firebase.web.json
+*firebase-adminsdk*.json
+firebase-admin.json
+
+# Local Python and build artifacts.
+.venv/
+__pycache__/
+*.py[cod]
+*.orig
+*.rej
+dist/
+site/
+.DS_Store

@@ -1,0 +1,94 @@
+---
+title: Development
+guide-section: Contributing
+description: Build the browser assets, run tests, build documentation, and package a release.
+---
+
+Conf Quiz is a Python package with browser source files in the same repository.
+The wheel includes prebuilt JavaScript, CSS, templates, Firestore scaffolding,
+and PDF.js assets.
+
+## Set up the repository
+
+```bash
+uv sync --extra dev
+npm install
+npm run build
+```
+
+Use uv for Python dependency changes so that `uv.lock` remains the source of
+the resolved environment.
+
+## Run the test suites
+
+```bash
+uv run pytest
+npm test
+```
+
+Run the Firestore Security Rules suite with Java and the Firebase Emulator
+Suite available:
+
+```bash
+npm run test:rules
+```
+
+Lint Python source and tests:
+
+```bash
+uv run ruff check src tests scripts
+```
+
+When browser source changes, run `npm run build` and commit both the source and
+generated package assets. The Python package must remain usable without Node.js.
+
+## Documentation
+
+The docs use Great Docs and require Python 3.11 or newer plus Quarto:
+
+```bash
+uv sync --group docs
+uv run --group docs great-docs build
+uv run python scripts/verify-docs.py great-docs/_site
+```
+
+All authored documentation pages live under `docs/`. Files in `docs/guide/`
+form the user guide; `docs/examples/` is a separate Examples section.
+
+To inspect the rendered output:
+
+```bash
+python -m http.server 8770 --bind 127.0.0.1 --directory great-docs/_site
+```
+
+The repository's GitHub Pages workflow publishes this documentation. A
+presentation repository uses the separate attendee workflow in
+[Deploy the attendee site](12-deploy-attendee-site.qmd).
+
+## Build the package
+
+Build outside the attendee export directory:
+
+```bash
+uv build --out-dir build-artifacts
+```
+
+Before a release, install the wheel into a clean environment and check:
+
+```bash
+confquiz --help
+confquiz init /tmp/conf-quiz-check
+confquiz preview /tmp/conf-quiz-check/quiz.yml
+```
+
+Package publication and GitHub release creation are maintainer operations and
+are not performed by the documentation workflow.
+
+## Public names
+
+- Distribution and repository: `conf-quiz`
+- Python import package: `confquiz`
+- Command: `confquiz`
+
+Keeping the import and command free of punctuation follows normal Python and
+shell naming conventions.

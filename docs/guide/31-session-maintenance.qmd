@@ -1,0 +1,63 @@
+---
+title: Session maintenance
+guide-section: Operations
+description: Inspect rooms, remove expired data, and prepare a clean event session.
+---
+
+Conf Quiz does not depend on paid Firestore TTL deletion. The presenter can
+inspect and remove old sessions with the Admin SDK.
+
+## List recent rooms
+
+```bash
+confquiz sessions list quiz.yml --credentials /safe/path/firebase-admin.json
+```
+
+The output includes the session ID, join code, status, and creation time. Listing
+requires the same Firebase project and namespace as the presentation.
+
+## Delete expired rooms
+
+Delete sessions older than seven days:
+
+```bash
+confquiz sessions clean quiz.yml \
+  --older-than 168 \
+  --credentials /safe/path/firebase-admin.json
+```
+
+The operation permanently deletes matching session documents and their nested
+question, response, participant, aggregate, and moderation data. It does not
+delete the PDF or exported attendee site.
+
+Set the command threshold to match `session.retention_hours` in `quiz.yml`.
+
+:::{.callout-warning}
+`sessions clean` is permanent. List rooms first and confirm that the command is
+pointing at the intended Firebase project.
+:::
+
+## Prepare for another run
+
+During rehearsal, use the presenter session menu to restart the active room or
+generate a new join code. Before the real session:
+
+1. end the final test room;
+2. start a new room;
+3. scan its QR code from another device;
+4. submit and clear one test answer; and
+5. leave the presenter process running.
+
+A manual join code can be reused after its earlier room is ended. A generated
+code avoids stale printed links and accidental reuse.
+
+## Firebase usage
+
+Every connected room uses Firestore document reads for live listeners and
+writes for joins, answers, state changes, and aggregates. Cleaning old data does
+not reduce reads already billed, but it limits retained audience data and keeps
+manual inspection manageable.
+
+For an event of up to 100 attendees, rehearse with the same number of questions
+and result settings you plan to use. Check current Firebase quotas and billing
+in the Firebase console before the event because plan limits can change.

@@ -1,0 +1,94 @@
+---
+title: Presenter workflow
+guide-section: Run the presentation
+description: Start a room, navigate the timeline, control results, and recover during a talk.
+---
+
+Run a final setup check before going on stage:
+
+```bash
+confquiz doctor quiz.yml --credentials /safe/path/firebase-admin.json
+```
+
+Start the presenter:
+
+```bash
+confquiz present quiz.yml --credentials /safe/path/firebase-admin.json
+```
+
+By default it listens only on `127.0.0.1:8765`. The command prints a presenter
+URL containing a random control token. Do not share that URL; show the attendee
+QR code from inside the presenter instead.
+
+## Timeline
+
+The presenter starts on PDF page 1. Slides and questions are one ordered
+timeline:
+
+```text
+slide 1 → slide 2 → question after slide 2 → slide 3
+```
+
+For an open question, advancing once closes voting and shows results. If the
+question has `correct`, advancing again reveals the answer. The following
+advance continues to the next slide.
+
+## Keyboard controls
+
+| Key | Action |
+|---|---|
+| Right arrow, Space, Page Down | Move forward |
+| Left arrow, Page Up | Move back |
+| `J` | Show or hide the joining information |
+| `F` | Enter or leave fullscreen |
+| `H` | Hide or restore the bottom controls while fullscreen |
+
+When controls are hidden in fullscreen, small controls remain at the bottom
+right. During open voting, one of them opens the live results. Arrow-key
+navigation continues to work.
+
+## Joining information
+
+The link control shows a thin, sticky joining strip. The QR control opens a
+larger room screen that uses the configured attendee URL and current code.
+
+If the attendee site moved after the YAML was exported, open the options menu
+and set a temporary attendee-site URL. The displayed link and QR code update
+without changing the file.
+
+## Results
+
+The chart control shows or hides live results while voting is open. Participant
+and answer counts remain available to the presenter. Closing voting or revealing
+an answer always shows results and statistics, even if live results were hidden.
+
+Attendee visibility is separate. Configure it per question and use the session
+switch to disable results on all attendee devices when needed.
+
+## Slides on attendee devices
+
+Slide sharing starts from the session default. The toggle is in the options
+menu. When enabled, attendee devices follow the active PDF page and questions
+replace the slide automatically. The attendee can expand the shared slide to
+fullscreen on a phone.
+
+## Session actions
+
+Use the session menu to:
+
+- clear answers for the current question;
+- restart the presentation at page 1 and clear the room;
+- end the active room;
+- generate a new room and join code; or
+- change the attendee-site URL for the current presenter process.
+
+Reset and restart actions cannot be performed by attendees. They are handled by
+the local Admin connection.
+
+## Before the session
+
+- Keep the presenter process running when opening the browser.
+- Close unused preview tabs so that keyboard focus is unambiguous.
+- Test the QR code using mobile data as well as venue Wi-Fi.
+- Keep a PDF viewer ready as a fallback presentation path.
+- End or replace test rooms before the audience arrives.

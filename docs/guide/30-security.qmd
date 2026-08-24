@@ -1,0 +1,75 @@
+---
+title: Security
+guide-section: Operations
+description: Credentials, Firestore access boundaries, App Check, and intended use.
+---
+
+Conf Quiz separates the trusted presenter from the public attendee app. The
+presenter owns the room and answer keys; attendee clients receive only the data
+needed for the current screen.
+
+## Trust boundaries
+
+| Component | Runs where | Credential |
+|---|---|---|
+| Presenter service | Speaker computer | Firebase Admin credential |
+| Presenter browser | Speaker computer | Random local control token |
+| Attendee app | Static host and attendee browser | Firebase web config + Anonymous Auth |
+| Firestore | Firebase | Security Rules and optional App Check enforcement |
+
+The Firebase web config and App Check site key are public identifiers. The
+Admin service-account JSON is a secret.
+
+## Firestore rules
+
+The included rules enforce these boundaries:
+
+- presentation status permits one exact public read and does not expose a room
+  code or session ID;
+- join-code documents allow exact reads, never collection listing;
+- room data requires Anonymous Authentication;
+- an attendee writes only the response document matching their Auth UID;
+- a write is accepted only for the active, open question;
+- answer types, option IDs, lengths, and numeric ranges are checked;
+- raw responses and moderation records are not readable by attendees; and
+- result aggregates are presenter-authored and read-only to attendee clients.
+
+Deploy the supplied rules before the attendee URL is public. Firebase Test mode
+is not an acceptable event configuration.
+
+## Local presenter token
+
+The presenter URL contains a fresh random token. Requests also pass browser
+origin checks. The server binds to `127.0.0.1` unless you explicitly select
+another host.
+
+If you bind the presenter to `0.0.0.0`, anyone on the local network can reach
+the port and attempt to access it. Keep the token private and use a trusted
+network. The attendee static site does not require the presenter port to be
+public.
+
+## App Check
+
+App Check helps Firebase distinguish your attendee app from unapproved scripts.
+Enable it after checking metrics with the deployed site. A wrong hostname or
+site key can lock out every attendee, so do not turn on enforcement for the
+first time on stage.
+
+## Intended use
+
+Anonymous Auth makes casual duplicate submissions less convenient; it does not
+prove identity or one-person-one-vote. Conf Quiz is not designed for:
+
+- elections;
+- graded assessment;
+- prize-bearing competitions;
+- confidential surveys; or
+- regulated or high-stakes decisions.
+
+For a conference poll, tell attendees what will be displayed, avoid collecting
+personal information, and clean up old rooms after the stated retention period.
+
+## Reporting a vulnerability
+
+Report security issues privately to the maintainer. Do not include live Admin
+credentials, attendee data, or an exploitable public room in a GitHub issue.

@@ -1,0 +1,118 @@
+---
+title: Configuration
+guide-section: Set up a live room
+description: Reference for presentation, Firebase, session, and question settings.
+---
+
+The configuration is strict YAML. Unknown fields, duplicate question IDs,
+invalid answer keys, and unsupported combinations fail validation before the
+presenter starts.
+
+## Complete structure
+
+```yaml
+schema_version: 1
+
+presentation:
+  id: pycon-talk
+  title: "A conference talk"
+  speaker: "Speaker name"
+  public_url: "https://speaker.github.io/pycon-talk/"
+  slides:
+    source: "slides.pdf"
+    fetch_during_export: true
+    # sha256: "64 hexadecimal characters for a remote PDF"
+  theme:
+    preset: light
+    accent: "#df4b2f"
+    background: "#101310"
+    # logo: "logo.svg"
+
+firebase:
+  web_config: "firebase.web.json"
+  app_check_site_key: null
+  namespace: "confquiz"
+
+session:
+  join_code:
+    mode: generated
+    length: 6
+  allow_answer_changes: true
+  show_results_on_presenter: false
+  show_results_on_attendee_devices: true
+  share_slides_with_attendees: false
+  minimum_public_responses: 1
+  retention_hours: 168
+
+questions: []
+```
+
+At least one question is required. A presentation can have up to 100.
+
+`firebase.web_config` is resolved relative to `quiz.yml`. The generated project
+uses the Git-ignored `firebase.web.json`, which each speaker fills with their
+own Firebase web app configuration. Only the placeholder
+`firebase.web.example.json` should be committed.
+
+## Presentation
+
+`presentation.id` becomes the stable Firestore presentation identifier. Use
+lowercase letters, numbers, and hyphens, starting with a letter.
+
+`presentation.public_url` is the deployed attendee-site URL. The presenter adds
+the active room code to this URL when drawing the QR code. You can temporarily
+override it from the presenter menu.
+
+`slides.source` accepts a local path or an HTTP(S) URL. Local paths are resolved
+relative to `quiz.yml`. Export freezes a remote PDF into the static site. Add a
+`sha256` when the exact remote file must be reproducible. PDFs are limited to
+100 MiB.
+
+Available presenter theme presets are `light`, `dark`, `grey`, `navy`, `warm`,
+`ocean`, and `forest`. The presenter may switch them during a talk; the browser
+remembers the choice for that presentation.
+
+## Join codes
+
+Generated codes are the default and work well for rehearsals and repeated
+events:
+
+```yaml
+session:
+  join_code:
+    mode: generated
+    length: 6
+```
+
+For a code printed in event material:
+
+```yaml
+session:
+  join_code:
+    mode: manual
+    value: PYCON26
+```
+
+Manual codes use 4–12 characters from `A–Z` and `2–9`. Starting a second live
+room with the same active code will fail instead of silently taking it over.
+
+## Result and slide defaults
+
+`show_results_on_presenter` controls the open-voting default. Results always
+appear in the presenter when voting closes or an answer is revealed.
+
+`show_results_on_attendee_devices` is a session-wide switch. A question's own
+visibility still decides when results appear. `minimum_public_responses` keeps
+an aggregate off attendee screens until enough answers exist.
+
+`share_slides_with_attendees` sets the initial state. The presenter can toggle
+slide sharing from the options menu.
+
+## Retention
+
+`retention_hours` records the intended room lifetime. On Firebase plans without
+TTL deletion, run `confquiz sessions clean` yourself; see
+[Session maintenance](31-session-maintenance.qmd).
+
+For question fields and valid answers, see
+[Question types](21-question-types.qmd).

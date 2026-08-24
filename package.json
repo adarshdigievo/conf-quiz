@@ -1,0 +1,20 @@
+{
+  "name": "conf-quiz-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-web.mjs",
+    "test": "node --test web-tests/*.test.mjs",
+    "test:rules": "npx --yes firebase-tools@15.26.0 emulators:exec --only firestore \"node --test firebase-tests/*.test.mjs\""
+  },
+  "dependencies": {
+    "bootstrap-icons": "1.13.1",
+    "firebase": "12.17.1",
+    "pdfjs-dist": "6.2.108"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.0",
+    "esbuild": "0.25.12"
+  }
+}

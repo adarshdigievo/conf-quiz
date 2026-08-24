@@ -1,0 +1,35 @@
+---
+title: Audience poll
+description: Open a talk with a choice question and a confidence slider.
+---
+
+Use a short opening poll to understand the room without testing attendees.
+
+```yaml
+questions:
+  - id: role
+    after_slide: 1
+    type: single_choice
+    prompt: "Which role best describes your current work?"
+    options:
+      - { id: application, label: "Application development" }
+      - { id: platform, label: "Platform or infrastructure" }
+      - { id: data, label: "Data or machine learning" }
+      - { id: learning, label: "Learning or teaching" }
+    results:
+      attendee_visibility: live
+
+  - id: confidence
+    after_slide: 2
+    type: slider
+    prompt: "How familiar are you with today's topic?"
+    min: 0
+    max: 10
+    step: 1
+    labels: { min: "New to it", max: "Use it often" }
+    results:
+      attendee_visibility: after_close
+```
+
+The first chart can stay live to establish the interaction. Closing the second
+question before publishing its histogram reduces anchoring on early answers.

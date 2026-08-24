@@ -1,0 +1,41 @@
+---
+title: Session feedback
+description: Collect moderated takeaways and a private rating near the end of a talk.
+---
+
+Text responses should be short enough to moderate while speaking.
+
+```yaml
+questions:
+  - id: takeaway
+    after_slide: 18
+    type: word_cloud
+    prompt: "What is one word you are taking away?"
+    max_length: 40
+    results:
+      display: word_cloud
+      attendee_visibility: after_close
+
+  - id: next-step
+    after_slide: 19
+    type: free_text
+    prompt: "What will you try after this session?"
+    max_length: 180
+    placeholder: "One practical next step"
+    results:
+      display: cards
+      attendee_visibility: never
+
+  - id: usefulness
+    after_slide: 20
+    type: rating
+    prompt: "How useful was this session?"
+    min: 1
+    max: 5
+    step: 1
+    results:
+      attendee_visibility: never
+```
+
+Approve only word-cloud entries that are suitable for the public screen. The
+free-text and rating aggregates remain presenter-only in this example.

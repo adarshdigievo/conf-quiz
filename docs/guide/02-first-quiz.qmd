@@ -1,0 +1,89 @@
+---
+title: Your first quiz
+guide-section: Getting started
+description: Add a question to a PDF and rehearse the complete audience flow.
+---
+
+Create a working directory:
+
+```bash
+confquiz init my-talk
+```
+
+Put your PDF at `my-talk/slides.pdf`, then replace `my-talk/quiz.yml` with a
+small configuration:
+
+```yaml
+schema_version: 1
+
+presentation:
+  id: reliable-python
+  title: "Reliable Python services"
+  speaker: "Your name"
+  public_url: "https://your-account.github.io/reliable-python/"
+  slides:
+    source: "slides.pdf"
+  theme:
+    preset: light
+    accent: "#df4b2f"
+
+firebase:
+  web_config: "firebase.web.json"
+  namespace: "confquiz"
+
+session:
+  show_results_on_presenter: false
+  show_results_on_attendee_devices: true
+  share_slides_with_attendees: false
+
+questions:
+  - id: first-poll
+    after_slide: 2
+    type: single_choice
+    prompt: "Which failure do you plan for first?"
+    options:
+      - { id: network, label: "Network failure" }
+      - { id: dependency, label: "Dependency failure" }
+      - { id: bad-input, label: "Unexpected input" }
+```
+
+`after_slide: 2` puts the poll between PDF pages 2 and 3.
+
+## Rehearse
+
+```bash
+confquiz preview my-talk/quiz.yml
+```
+
+The command prints two URLs:
+
+- the presenter URL includes a local control token;
+- the attendee URL ends in `/attend/?code=DEMO26`.
+
+Open both. Use the arrow keys in the presenter view to move through the PDF.
+After page 2, the question opens on both screens. Submit an attendee response,
+then advance once to close voting and show results.
+
+Preview stores everything in memory. It does not read or write Firestore and
+is safe to restart as often as needed.
+
+## Validate the files
+
+Copy the generated example and replace every placeholder with the web
+configuration from your own Firebase project:
+
+```bash
+cp my-talk/firebase.web.example.json my-talk/firebase.web.json
+```
+
+Then run:
+
+```bash
+confquiz validate my-talk/quiz.yml
+```
+
+Validation checks the YAML schema, Firebase metadata, PDF integrity, page
+references, and remote-slide checksum when one is configured.
+
+Next, [set up Firebase](10-firebase-setup.qmd) and
+[publish the attendee site](12-deploy-attendee-site.qmd).

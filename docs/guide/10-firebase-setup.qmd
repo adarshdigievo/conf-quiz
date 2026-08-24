@@ -1,0 +1,114 @@
+---
+title: Firebase setup
+guide-section: Set up a live room
+description: Configure Firestore, Anonymous Authentication, App Check, and local Admin access.
+---
+
+Conf Quiz uses Firebase only for live rooms. The public attendee app talks to
+Firebase with the web SDK; the local presenter uses the Admin SDK.
+
+## 1. Create the Firebase services
+
+In one Firebase project:
+
+1. Create the `(default)` Cloud Firestore database in Native mode.
+2. Enable **Anonymous** in Authentication → Sign-in method.
+3. Register a web app.
+4. Copy `firebase.web.example.json` to the Git-ignored `firebase.web.json` beside
+   `quiz.yml`.
+5. Replace the placeholders with that web app's configuration object.
+
+The file should contain the object itself, not the surrounding `<script>` tag:
+
+```json
+{
+  "apiKey": "...",
+  "authDomain": "your-project.firebaseapp.com",
+  "projectId": "your-project",
+  "storageBucket": "your-project.firebasestorage.app",
+  "messagingSenderId": "...",
+  "appId": "..."
+}
+```
+
+Each speaker uses their own Firebase project and local `firebase.web.json`; Conf
+Quiz does not provide a shared Firebase backend. The file identifies that
+speaker's project but does not grant Admin access. The browser identifiers are
+necessarily embedded in the exported attendee site so browsers can connect.
+Firebase authorizes access through Authentication, Firestore Security Rules,
+and App Check—not by hiding the web configuration. See Firebase's
+[API key guidance](https://firebase.google.com/docs/projects/api-keys) for the
+security model and key restrictions.
+
+## 2. Add Firestore rules and indexes
+
+Generate the files:
+
+```bash
+confquiz firebase scaffold my-talk
+```
+
+From the presentation directory, select the project and deploy:
+
+```bash
+npx firebase-tools login
+npx firebase-tools use YOUR_PROJECT_ID
+npx firebase-tools deploy --only firestore:rules,firestore:indexes
+```
+
+Do not leave Firestore in Test mode for a public event. The supplied rules deny
+collection listing, keep raw responses private, and let each authenticated
+attendee write only their own response while a question is open.
+
+Keep `firebase.namespace` set to `confquiz`; the included rules use that fixed
+collection prefix.
+
+## 3. Create presenter credentials
+
+Create a service account for the presenter and grant the least privilege needed
+to read and write Firestore, such as `roles/datastore.user`. Download its JSON
+key to the speaker computer.
+
+Keep this file outside the repository. Start a room with an explicit path:
+
+```bash
+confquiz present quiz.yml --credentials /safe/path/firebase-admin.json
+```
+
+Alternatively set `GOOGLE_APPLICATION_CREDENTIALS` or use Application Default
+Credentials.
+
+## 4. Configure App Check
+
+For a public attendee site:
+
+1. Register a score-based reCAPTCHA Enterprise key for the attendee domain.
+2. Register the web app with Firebase App Check.
+3. Put the public site key in the quiz configuration:
+
+   ```yaml
+   firebase:
+     web_config: "firebase.web.json"
+     app_check_site_key: "your-public-site-key"
+   ```
+
+4. Deploy the attendee site and confirm valid requests in App Check metrics.
+5. Enable enforcement for Firestore and Authentication after the rehearsal
+   succeeds.
+
+App Check reduces scripted abuse. It does not make an anonymous poll suitable
+for voting, exams, or prizes.
+
+## 5. Check the complete setup
+
+```bash
+confquiz doctor quiz.yml --credentials /safe/path/firebase-admin.json
+```
+
+`doctor` checks the web configuration, PDF, built browser assets, Admin
+credential project, and a Firestore read.
+
+:::{.callout-warning}
+Never put the Admin JSON in the attendee export, a GitHub secret visible to pull
+requests, the YAML file, or a browser environment variable.
+:::
