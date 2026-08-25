@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "conf-quiz"
-version = "1.1.0"
+version = "1.2.0"
 description = "Run PDF presentations with anonymous live audience questions."
 readme = "README.md"
 requires-python = ">=3.10"
