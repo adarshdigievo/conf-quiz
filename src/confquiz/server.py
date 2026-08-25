@@ -95,12 +95,14 @@ class PresenterRuntime:
         mode: str,
         store: FirebaseStore | None = None,
         local_port: int = 8765,
+        resume_code: str | None = None,
     ) -> None:
         self.quiz = quiz
         self.slides = slides
         self.mode = mode
         self.store = store
         self.local_port = local_port
+        self.resume_code = resume_code
         self.controller = SessionController(quiz, slides.page_count)
         self.control_token = secrets.token_urlsafe(32)
         self.presenter_clients: set[WebSocket] = set()
@@ -123,7 +125,14 @@ class PresenterRuntime:
     async def start(self) -> None:
         self.loop = asyncio.get_running_loop()
         if self.store:
-            await asyncio.to_thread(self.store.create_session, self.controller)
+            if self.resume_code:
+                await asyncio.to_thread(
+                    self.store.resume_session,
+                    self.controller,
+                    self.resume_code,
+                )
+            else:
+                await asyncio.to_thread(self.store.create_session, self.controller)
             self.store.watch_participants(self.controller, self._participants_from_thread)
             self._availability_task = asyncio.create_task(self._availability_heartbeat())
         else:

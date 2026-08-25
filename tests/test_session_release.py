@@ -55,6 +55,14 @@ class MemoryCollection:
             document_id = f"session-{self.database.next_id}"
         return MemoryDocument(self.database, (*self.path, document_id))
 
+    def stream(self):
+        child_length = len(self.path) + 1
+        return [
+            MemorySnapshot(MemoryDocument(self.database, path), data)
+            for path, data in sorted(self.database.documents.items())
+            if len(path) == child_length and path[: len(self.path)] == self.path
+        ]
+
 
 class MemoryBatch:
     def __init__(self, database):
@@ -134,6 +142,74 @@ def test_end_session_releases_manual_code_for_immediate_reuse(quiz_files):
     assert second_session_id != first_session_id
     assert database.documents[code_path]["sessionId"] == second_session_id
     assert database.documents[(store.sessions_name, first_session_id)]["status"] == "ended"
+
+
+def test_resume_session_restores_the_existing_room(quiz_files):
+    _, quiz = quiz_files
+    quiz.session.join_code = JoinCodeConfig(mode="manual", value="PYAU26")
+    database = MemoryFirestore()
+    store = make_store(quiz, database)
+    original = SessionController(quiz, page_count=12)
+    session_id, code = store.create_session(original)
+    original.next()
+    original.next()
+    store.persist_state(original)
+    database.documents[
+        (
+            store.sessions_name,
+            session_id,
+            "questions",
+            "single",
+            "responses",
+            "attendee-1",
+        )
+    ] = {"answer": "a"}
+    database.documents[
+        (store.sessions_name, session_id, "moderation", "single")
+    ] = {"approvedResponseIds": ["attendee-1"]}
+
+    resumed = SessionController(quiz, page_count=12)
+    resumed_session_id, resumed_code = store.resume_session(resumed, " pyau26 ")
+
+    assert resumed_session_id == session_id
+    assert resumed_code == code == "PYAU26"
+    assert resumed.session_id == session_id
+    assert resumed.join_code == code
+    assert resumed.index == original.index
+    assert resumed.phase == "results"
+    assert resumed.current_question.id == "single"
+    assert resumed.responses["single"] == {"attendee-1": "a"}
+    assert resumed.approved["single"] == {"attendee-1"}
+    assert resumed.aggregate()["responseCount"] == 1
+    assert database.documents[(store.codes_name, code)]["status"] == "running"
+    assert database.documents[(store.sessions_name, session_id)]["status"] == "running"
+    assert database.documents[(store.presentations_name, quiz.presentation.id)]["status"] == "running"
+
+
+def test_resume_session_rejects_a_changed_quiz_configuration(quiz_files):
+    _, quiz = quiz_files
+    quiz.session.join_code = JoinCodeConfig(mode="manual", value="PYAU26")
+    database = MemoryFirestore()
+    store = make_store(quiz, database)
+    original = SessionController(quiz, page_count=12)
+    store.create_session(original)
+    quiz.presentation.title = "Changed after the crash"
+
+    with pytest.raises(FirebaseError, match="different quiz configuration"):
+        store.resume_session(SessionController(quiz, page_count=12), "PYAU26")
+
+
+def test_resume_session_rejects_an_ended_room(quiz_files):
+    _, quiz = quiz_files
+    quiz.session.join_code = JoinCodeConfig(mode="manual", value="PYAU26")
+    database = MemoryFirestore()
+    store = make_store(quiz, database)
+    original = SessionController(quiz, page_count=12)
+    store.create_session(original)
+    store.end_session(original)
+
+    with pytest.raises(FirebaseError, match="not attached to a running room"):
+        store.resume_session(SessionController(quiz, page_count=12), "PYAU26")
 
 
 def test_release_code_targets_one_room_and_preserves_its_data(quiz_files):
@@ -264,3 +340,33 @@ def test_sessions_release_cli_uses_default_config_and_keeps_data(monkeypatch, qu
     assert "Released join code PYAU26." in result.output
     assert "Ended session session-target." in result.output
     assert "No session data was deleted." in result.output
+
+
+def test_present_cli_passes_the_resume_code_to_the_runtime(monkeypatch):
+    calls = {}
+
+    def fake_serve(config, host, port, *, live, credential=None, resume_code=None):
+        calls.update(
+            {
+                "config": config,
+                "host": host,
+                "port": port,
+                "live": live,
+                "credential": credential,
+                "resume_code": resume_code,
+            }
+        )
+
+    monkeypatch.setattr(cli, "_serve", fake_serve)
+
+    result = CliRunner().invoke(cli.app, ["present", "quiz.yml", "--resume", "pyau26"])
+
+    assert result.exit_code == 0, result.output
+    assert calls == {
+        "config": Path("quiz.yml"),
+        "host": "127.0.0.1",
+        "port": 8765,
+        "live": True,
+        "credential": None,
+        "resume_code": "pyau26",
+    }

@@ -4,8 +4,7 @@ guide-section: Operations
 description: Inspect rooms, release join codes, remove expired data, and prepare a clean event session.
 ---
 
-Conf Quiz does not depend on paid Firestore TTL deletion. The presenter can
-inspect and remove old sessions with the Admin SDK.
+Conf Quiz does not depend on paid Firestore TTL deletion. The presenter can inspect, resume, release, and remove sessions with the Admin SDK.
 
 ## List recent rooms
 
@@ -18,7 +17,7 @@ requires the same Firebase project and namespace as the presentation.
 
 ## Release one join code
 
-Ending a room from the presenter releases its join code immediately. If the presenter stopped before it could complete that update, stop the old presenter process and release only its code:
+Ending a room from the presenter releases its join code immediately. Use the targeted release command when you want to discard one stale room while keeping its stored data:
 
 ```bash
 confquiz sessions release PYAU26 \
@@ -32,7 +31,7 @@ When `quiz.yml` and the Firebase Admin credentials are already available through
 confquiz sessions release PYAU26
 ```
 
-The command verifies that the code belongs to the presentation in `quiz.yml`, marks the linked room ended, and releases its mapping. It keeps the session and response documents for later inspection or cleanup.
+The command verifies that the code belongs to the presentation in `quiz.yml`, marks the linked room ended, and releases its mapping. It keeps the session and response documents for later inspection or cleanup. Do not release a room that you intend to resume after a presenter-computer restart. Use `confquiz present quiz.yml --resume PYAU26` instead.
 
 ## Delete expired rooms
 

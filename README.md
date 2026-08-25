@@ -24,8 +24,7 @@ published with GitHub Pages, and Firebase provides the shared live state.
 - Share the active slide with attendee devices when useful.
 - Rehearse the complete flow without connecting to Firebase.
 - Export a base-path-safe attendee site for GitHub Pages or any static host.
-- Reset a room, generate a new join code, and clean up old sessions from the
-  local presenter tools.
+- Resume an interrupted room, release one join code, or clean up old sessions from the local presenter tools.
 
 ## Installation
 
@@ -109,6 +108,16 @@ confquiz present my-talk/quiz.yml --credentials /safe/path/firebase-admin.json
 
 The Admin credential stays on the presenter laptop. It is never included in the
 exported site.
+
+If the presenter computer restarts during a live room, reconnect to the same session with its join code:
+
+```bash
+confquiz present my-talk/quiz.yml \
+  --resume PYAU26 \
+  --credentials /safe/path/firebase-admin.json
+```
+
+Resume uses the last state synchronized to Firebase and keeps existing attendee connections and answers. It requires the same quiz configuration and an active, unexpired room.
 
 ## Firebase
 

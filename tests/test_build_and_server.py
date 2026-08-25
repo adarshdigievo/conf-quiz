@@ -347,6 +347,70 @@ async def test_live_runtime_marks_presentation_offline_when_it_closes(quiz_files
     assert store.closed is True
 
 
+@pytest.mark.asyncio
+async def test_live_runtime_resumes_instead_of_creating_a_room(quiz_files):
+    config_path, quiz = quiz_files
+    slides = materialize_slides(quiz, config_path)
+
+    class Store:
+        def __init__(self):
+            self.resume_codes = []
+            self.created = False
+
+        def create_session(self, _controller):
+            self.created = True
+
+        def resume_session(self, controller, code):
+            self.resume_codes.append(code)
+            controller.session_id = "existing-session"
+            controller.join_code = "PYAU26"
+            controller._activate(1)
+            controller.phase = "results"
+
+        def watch_participants(self, _controller, _callback):
+            return None
+
+        def stop_response_watch(self):
+            return None
+
+        def load_moderation(self, _controller, _question_id):
+            return None
+
+        def watch_responses(self, _controller, _question_id, _callback):
+            return None
+
+        def publish_aggregate(self, _controller, _question):
+            return None
+
+        def refresh_presentation_availability(self, _controller):
+            return None
+
+        def mark_presentation_offline(self, _controller):
+            return None
+
+        def close(self):
+            return None
+
+    store = Store()
+    runtime = PresenterRuntime(
+        quiz,
+        slides,
+        mode="firebase",
+        store=store,
+        resume_code="pyau26",
+    )
+
+    await runtime.start()
+
+    assert store.resume_codes == ["pyau26"]
+    assert store.created is False
+    assert runtime.controller.session_id == "existing-session"
+    assert runtime.controller.join_code == "PYAU26"
+    assert runtime.controller.current_question.id == "single"
+    assert runtime.controller.phase == "results"
+    await runtime.close()
+
+
 def test_packaged_firebase_scaffold_matches_repository_files():
     root = Path(".")
     scaffold = Path("src/confquiz/scaffold")

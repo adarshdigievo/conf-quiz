@@ -149,6 +149,7 @@ def _serve(
     *,
     live: bool,
     credential: Path | None = None,
+    resume_code: str | None = None,
 ) -> None:
     try:
         quiz = load_quiz_config(config)
@@ -166,6 +167,7 @@ def _serve(
         mode="firebase" if live else "preview",
         store=store,
         local_port=port,
+        resume_code=resume_code,
     )
     presenter_url = f"http://{host}:{port}/?token={runtime.control_token}"
     typer.secho("Presenter URL", fg=typer.colors.GREEN, bold=True)
@@ -194,11 +196,15 @@ def present(
         Path | None,
         typer.Option("--credentials", help="Firebase Admin JSON path; defaults to ADC or local discovery."),
     ] = None,
+    resume: Annotated[
+        str | None,
+        typer.Option("--resume", help="Resume the active room using this join code."),
+    ] = None,
     host: Annotated[str, typer.Option(help="Local bind address.")] = "127.0.0.1",
     port: Annotated[int, typer.Option(help="Local port.")] = 8765,
 ) -> None:
     """Start the secure local presenter and a live Firebase room."""
-    _serve(config, host, port, live=True, credential=credential)
+    _serve(config, host, port, live=True, credential=credential, resume_code=resume)
 
 
 @app.command()

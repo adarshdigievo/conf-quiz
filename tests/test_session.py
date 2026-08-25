@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from confquiz.session import SessionController, build_timeline
 
 
@@ -87,6 +89,40 @@ def test_presenter_visibility_controls_are_live_session_state(quiz_files):
     assert payload["shareSlidesWithAttendees"] is True
     assert controller.state_document()["shareSlidesWithAttendees"] is True
     assert "showResultsOnPresenter" not in controller.state_document()
+
+
+def test_controller_restores_a_valid_persisted_question_state(quiz_files):
+    _, quiz = quiz_files
+    controller = SessionController(quiz, 12)
+    document = {
+        "timelineIndex": 1,
+        "phase": "revealed",
+        "activeSlide": None,
+        "activeQuestionId": "single",
+        "shareSlidesWithAttendees": True,
+    }
+
+    controller.restore_state(document)
+
+    assert controller.index == 1
+    assert controller.phase == "revealed"
+    assert controller.current_question.id == "single"
+    assert controller.share_slides_with_attendees is True
+
+
+def test_controller_rejects_an_inconsistent_persisted_state(quiz_files):
+    _, quiz = quiz_files
+    controller = SessionController(quiz, 12)
+    document = {
+        "timelineIndex": 1,
+        "phase": "slide",
+        "activeSlide": 1,
+        "activeQuestionId": None,
+        "shareSlidesWithAttendees": False,
+    }
+
+    with pytest.raises(ValueError, match="question state is inconsistent"):
+        controller.restore_state(document)
 
 
 def test_presenter_results_are_forced_after_voting_closes(quiz_files):

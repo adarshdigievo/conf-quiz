@@ -62,6 +62,13 @@ class FirebaseStore:
     def _session_marker(session_id: str) -> str:
         return hashlib.sha256(session_id.encode()).hexdigest()
 
+    @staticmethod
+    def _normalize_join_code(code: str) -> str:
+        normalized_code = code.strip().upper()
+        if not JOIN_CODE_PATTERN.fullmatch(normalized_code):
+            raise FirebaseError("Join code must be 4 to 12 characters using A-Z and 2-9")
+        return normalized_code
+
     def _new_code(self, length: int) -> str:
         return "".join(random.SystemRandom().choice(JOIN_ALPHABET) for _ in range(length))
 
@@ -125,6 +132,91 @@ class FirebaseStore:
             controller.join_code = code
             return session_ref.id, code
         raise FirebaseError("Could not allocate an unused join code")
+
+    def resume_session(self, controller: SessionController, code: str) -> tuple[str, str]:
+        normalized_code = self._normalize_join_code(code)
+        now = datetime.now(timezone.utc)
+        code_ref = self.db.collection(self.codes_name).document(normalized_code)
+        code_snapshot = code_ref.get()
+        if not code_snapshot.exists:
+            raise FirebaseError(f"Join code {normalized_code} does not exist")
+
+        code_data = code_snapshot.to_dict()
+        presentation_id = self.quiz.presentation.id
+        if code_data.get("presentationId") != presentation_id:
+            raise FirebaseError(
+                f"Join code {normalized_code} does not belong to presentation {presentation_id}"
+            )
+        if code_data.get("status") != "running":
+            raise FirebaseError(f"Join code {normalized_code} is not attached to a running room")
+        code_expires_at = code_data.get("expiresAt")
+        if not isinstance(code_expires_at, datetime) or code_expires_at <= now:
+            raise FirebaseError(f"Join code {normalized_code} has expired")
+
+        session_id = code_data.get("sessionId")
+        if not isinstance(session_id, str) or not session_id:
+            raise FirebaseError(f"Join code {normalized_code} has an invalid session mapping")
+        session_ref = self._session_ref(session_id)
+        session_snapshot = session_ref.get()
+        if not session_snapshot.exists:
+            raise FirebaseError(f"The room for join code {normalized_code} does not exist")
+
+        session_data = session_snapshot.to_dict()
+        if session_data.get("presentationId") != presentation_id:
+            raise FirebaseError(
+                f"Join code {normalized_code} points to a different presentation's session"
+            )
+        if session_data.get("joinCode") != normalized_code:
+            raise FirebaseError(f"Join code {normalized_code} does not match its session")
+        if session_data.get("status") != "running":
+            raise FirebaseError(f"The room for join code {normalized_code} has ended")
+        session_expires_at = session_data.get("expiresAt")
+        if not isinstance(session_expires_at, datetime) or session_expires_at <= now:
+            raise FirebaseError(f"The room for join code {normalized_code} has expired")
+        if session_data.get("configHash") != self.config_hash(self.quiz):
+            raise FirebaseError(
+                f"The room for join code {normalized_code} was created from a different quiz configuration"
+            )
+
+        try:
+            controller.restore_state(session_data)
+        except ValueError as error:
+            raise FirebaseError(
+                f"The room for join code {normalized_code} cannot be resumed: {error}"
+            ) from error
+        controller.session_id = session_id
+        controller.join_code = normalized_code
+
+        for question in self.quiz.questions:
+            question_ref = session_ref.collection("questions").document(question.id)
+            if not question_ref.get().exists:
+                raise FirebaseError(
+                    f"The room for join code {normalized_code} is missing question {question.id}"
+                )
+            responses = {
+                snapshot.id: snapshot.to_dict().get("answer")
+                for snapshot in question_ref.collection("responses").stream()
+            }
+            controller.set_responses(question.id, responses)
+            self.load_moderation(controller, question.id)
+
+        batch = self.db.batch()
+        batch.update(session_ref, {"resumedAt": firestore.SERVER_TIMESTAMP})
+        batch.update(code_ref, {"resumedAt": firestore.SERVER_TIMESTAMP})
+        batch.set(
+            self._presentation_ref(),
+            {
+                "presentationTitle": self.quiz.presentation.title,
+                "status": "running",
+                "expiresAt": session_expires_at,
+                "onlineUntil": now + PRESENTATION_ONLINE_WINDOW,
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+                "sessionMarker": self._session_marker(session_id),
+            },
+            merge=True,
+        )
+        batch.commit()
+        return session_id, normalized_code
 
     def persist_state(self, controller: SessionController) -> None:
         if not controller.session_id:
@@ -250,9 +342,7 @@ class FirebaseStore:
         self.stop_participant_watch()
 
     def release_code(self, code: str) -> CodeReleaseResult:
-        normalized_code = code.strip().upper()
-        if not JOIN_CODE_PATTERN.fullmatch(normalized_code):
-            raise FirebaseError("Join code must be 4 to 12 characters using A-Z and 2-9")
+        normalized_code = self._normalize_join_code(code)
 
         code_ref = self.db.collection(self.codes_name).document(normalized_code)
         code_snapshot = code_ref.get()

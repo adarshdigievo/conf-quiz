@@ -152,6 +152,35 @@ class SessionController:
             "allowAnswerChanges": self.quiz.session.allow_answer_changes,
         }
 
+    def restore_state(self, document: dict[str, Any]) -> None:
+        index = document.get("timelineIndex")
+        phase = document.get("phase")
+        if type(index) is not int or not 0 <= index < len(self.timeline):
+            raise ValueError("the saved timeline position is invalid")
+
+        item = self.timeline[index]
+        if item.kind == "slide":
+            if (
+                phase != "slide"
+                or document.get("activeSlide") != item.slide
+                or document.get("activeQuestionId") is not None
+            ):
+                raise ValueError("the saved slide state is inconsistent")
+        elif (
+            phase not in {"open", "results", "revealed"}
+            or document.get("activeQuestionId") != item.question_id
+            or document.get("activeSlide") is not None
+        ):
+            raise ValueError("the saved question state is inconsistent")
+
+        share_slides = document.get("shareSlidesWithAttendees")
+        if not isinstance(share_slides, bool):
+            raise ValueError("the saved slide-sharing preference is invalid")
+
+        self.index = index
+        self.phase = phase
+        self.share_slides_with_attendees = share_slides
+
     def aggregate(self, question: Question | None = None, *, public: bool = False) -> dict[str, Any] | None:
         question = question or self.current_question
         if question is None:

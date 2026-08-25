@@ -85,6 +85,22 @@ Use the session menu to:
 Reset and restart actions cannot be performed by attendees. They are handled by
 the local Admin connection.
 
+## Resume after a computer restart
+
+If the presenter computer or process stops during a live room, restart it with the existing join code:
+
+```bash
+confquiz present quiz.yml \
+  --resume PYAU26 \
+  --credentials /safe/path/firebase-admin.json
+```
+
+Conf Quiz reconnects to the same Firestore session and restores its last synchronized slide or question state, responses, moderation decisions, participant listener, and join code. Attendee browsers that stayed open remain attached to that session.
+
+Use the same `quiz.yml`, PDF, Firebase project, and presentation ID. Resume fails if the room ended, expired, belongs to another presentation, or was created from different quiz configuration. Stop the old presenter process before resuming. Do not run `sessions release` first because release ends the room mapping.
+
+If the computer stopped before the most recent navigation write reached Firebase, recovery starts from the last synchronized timeline position. Move forward or back once to return to the intended slide.
+
 ## Before the session
 
 - Keep the presenter process running when opening the browser.
