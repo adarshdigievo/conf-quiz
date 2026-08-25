@@ -1,7 +1,7 @@
 ---
 title: Session maintenance
 guide-section: Operations
-description: Inspect rooms, remove expired data, and prepare a clean event session.
+description: Inspect rooms, release join codes, remove expired data, and prepare a clean event session.
 ---
 
 Conf Quiz does not depend on paid Firestore TTL deletion. The presenter can
@@ -15,6 +15,24 @@ confquiz sessions list quiz.yml --credentials /safe/path/firebase-admin.json
 
 The output includes the session ID, join code, status, and creation time. Listing
 requires the same Firebase project and namespace as the presentation.
+
+## Release one join code
+
+Ending a room from the presenter releases its join code immediately. If the presenter stopped before it could complete that update, stop the old presenter process and release only its code:
+
+```bash
+confquiz sessions release PYAU26 \
+  --config quiz.yml \
+  --credentials /safe/path/firebase-admin.json
+```
+
+When `quiz.yml` and the Firebase Admin credentials are already available through the default paths, the short form is enough:
+
+```bash
+confquiz sessions release PYAU26
+```
+
+The command verifies that the code belongs to the presentation in `quiz.yml`, marks the linked room ended, and releases its mapping. It keeps the session and response documents for later inspection or cleanup.
 
 ## Delete expired rooms
 

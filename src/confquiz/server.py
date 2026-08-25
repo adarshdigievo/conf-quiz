@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import io
 import json
 import logging
 import secrets
+from collections import deque
 from contextlib import asynccontextmanager, suppress
 from importlib.resources import files
 from typing import Any
@@ -28,6 +30,10 @@ from confquiz.models import QuizConfig
 from confquiz.session import SessionController
 
 logger = logging.getLogger(__name__)
+
+SYNC_ERROR_MESSAGE = (
+    "Firebase synchronization failed. Local presenting will continue; attendee screens may be out of sync."
+)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -101,6 +107,12 @@ class PresenterRuntime:
         self.attendee_clients: dict[WebSocket, str] = {}
         self.loop: asyncio.AbstractEventLoop | None = None
         self._availability_task: asyncio.Task | None = None
+        self._persistence_task: asyncio.Task | None = None
+        self._persistence_queue: deque[tuple[int, int, SessionController]] = deque()
+        self._persistence_revision = 0
+        self._local_revision = 0
+        self._sync_status = "synced"
+        self._sync_error: str | None = None
         self._watched_question: str | None = None
         self.attendee_base_url = (
             f"http://127.0.0.1:{local_port}/attend/"
@@ -125,6 +137,7 @@ class PresenterRuntime:
                 self._availability_task.cancel()
                 with suppress(asyncio.CancelledError):
                     await self._availability_task
+            await self._flush_persistence()
             await asyncio.to_thread(self.store.mark_presentation_offline, self.controller)
             await asyncio.to_thread(self.store.close)
 
@@ -161,32 +174,79 @@ class PresenterRuntime:
     def join_url(self) -> str:
         return _with_code(self.attendee_base_url, self.controller.join_code)
 
-    async def _sync_watch(self) -> None:
-        question = self.controller.current_question
+    async def _sync_watch(
+        self,
+        controller: SessionController | None = None,
+        local_revision: int | None = None,
+    ) -> None:
+        target = controller or self.controller
+        question = target.current_question
         question_id = question.id if question else None
         if question_id == self._watched_question:
             if question and self.store:
-                await asyncio.to_thread(self.store.publish_aggregate, self.controller, question)
+                await asyncio.to_thread(self.store.publish_aggregate, target, question)
             return
         self._watched_question = question_id
         if self.store:
             self.store.stop_response_watch()
             if question_id:
-                await asyncio.to_thread(self.store.load_moderation, self.controller, question_id)
-                self.store.watch_responses(self.controller, question_id, self._responses_from_thread)
-                await asyncio.to_thread(self.store.publish_aggregate, self.controller, question)
+                await asyncio.to_thread(self.store.load_moderation, target, question_id)
+                current_question = self.controller.current_question
+                if (
+                    current_question
+                    and current_question.id == question_id
+                    and (local_revision is None or local_revision == self._local_revision)
+                ):
+                    self.controller.approved[question_id] = set(target.approved[question_id])
+                self.store.watch_responses(target, question_id, self._responses_from_thread)
+                await asyncio.to_thread(self.store.publish_aggregate, target, question)
 
-    async def _persist_and_broadcast(self) -> None:
-        if self.store:
-            await asyncio.to_thread(self.store.persist_state, self.controller)
-            question = self.controller.current_question
-            if question:
-                await asyncio.to_thread(self.store.publish_aggregate, self.controller, question)
-        await self._sync_watch()
+    def _queue_persistence(self) -> None:
+        if not self.store:
+            return
+        self._persistence_revision += 1
+        self._persistence_queue.append(
+            (self._persistence_revision, self._local_revision, copy.deepcopy(self.controller))
+        )
+        self._sync_status = "syncing"
+        self._sync_error = None
+
+    def _start_persistence_worker(self) -> None:
+        if self.store and (self._persistence_task is None or self._persistence_task.done()):
+            self._persistence_task = asyncio.create_task(self._run_persistence_queue())
+
+    async def _run_persistence_queue(self) -> None:
+        try:
+            while self._persistence_queue and self.store:
+                revision, local_revision, snapshot = self._persistence_queue.popleft()
+                try:
+                    await asyncio.to_thread(self.store.persist_state, snapshot)
+                    await self._sync_watch(snapshot, local_revision)
+                except Exception:
+                    logger.warning("Could not synchronize presenter state with Firebase", exc_info=True)
+                    if revision == self._persistence_revision:
+                        self._sync_status = "error"
+                        self._sync_error = SYNC_ERROR_MESSAGE
+                else:
+                    if revision == self._persistence_revision:
+                        self._sync_status = "synced"
+                        self._sync_error = None
+                await self.broadcast_presenter()
+        finally:
+            self._persistence_task = None
+
+    async def _flush_persistence(self) -> None:
+        while self._persistence_task:
+            await self._persistence_task
+
+    async def _broadcast_then_persist(self) -> None:
+        self._queue_persistence()
         await self.broadcast()
+        self._start_persistence_worker()
 
     async def handle_presenter_action(self, message: dict[str, Any]) -> None:
         action = message.get("action")
+        self._local_revision += 1
         if action == "next":
             self.controller.next()
         elif action == "previous":
@@ -232,7 +292,7 @@ class PresenterRuntime:
                     await asyncio.to_thread(self.store.publish_aggregate, self.controller, question)
         else:
             raise ValueError(f"Unknown presenter action: {action}")
-        await self._persist_and_broadcast()
+        await self._broadcast_then_persist()
 
     async def _new_session(self) -> None:
         if self.store:
@@ -250,6 +310,8 @@ class PresenterRuntime:
         payload = {"type": "state", **self.controller.presenter_payload(self.join_url)}
         payload["session"]["attendeeBaseUrl"] = self.attendee_base_url
         payload["session"]["attendeeUrlEditable"] = self.mode != "preview"
+        payload["session"]["syncStatus"] = self._sync_status if self.store else "local"
+        payload["session"]["syncError"] = self._sync_error
         return payload
 
     def attendee_payload(self, uid: str | None = None) -> dict[str, Any]:

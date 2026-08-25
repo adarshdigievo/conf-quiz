@@ -1,5 +1,6 @@
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import { element, renderResults } from "./results.js";
+import { SlideRenderer } from "./slide-renderer.js";
 
 const runtime = window.CONFQUIZ_PRESENTER;
 const stage = document.querySelector("[data-stage]");
@@ -32,15 +33,18 @@ const toastRegion = document.querySelector("[data-toasts]");
 
 let socket = null;
 let state = null;
-let pdfDocument = null;
-let activeRenderTask = null;
-let currentSlide = null;
 let reconnectTimer = null;
 let themeStorageKey = null;
+let lastSyncError = null;
 
 const PRESENTER_THEMES = new Set(["light", "dark", "grey", "navy", "warm", "ocean", "forest"]);
 
 GlobalWorkerOptions.workerSrc = runtime.pdfWorkerUrl;
+
+const slideRenderer = new SlideRenderer({
+  stage,
+  loadDocument: () => getDocument({ url: runtime.slideUrl }).promise,
+});
 
 function setConnection(label, online) {
   connection.textContent = label;
@@ -92,6 +96,7 @@ function loadPresenterTheme(presentation) {
 }
 
 function renderEnded(presentation) {
+  slideRenderer.deactivate();
   const shell = element("div", "ended-stage");
   shell.append(element("p", "eyebrow", "Session complete"), element("h1", "", "Thanks for joining."));
   shell.append(element("p", "presenter-byline", presentation.title));
@@ -99,37 +104,7 @@ function renderEnded(presentation) {
 }
 
 async function renderSlide(pageNumber) {
-  if (currentSlide === pageNumber && stage.querySelector("canvas")) return;
-  currentSlide = pageNumber;
-  if (!pdfDocument) {
-    stage.replaceChildren(element("div", "stage-loading", "Loading slides…"));
-    pdfDocument = await getDocument({ url: runtime.slideUrl }).promise;
-  }
-  if (activeRenderTask) {
-    try { activeRenderTask.cancel(); } catch (_) { /* already complete */ }
-  }
-  const page = await pdfDocument.getPage(pageNumber);
-  const base = page.getViewport({ scale: 1 });
-  const width = Math.max(100, stage.clientWidth - 2);
-  const height = Math.max(100, stage.clientHeight - 2);
-  const scale = Math.min(width / base.width, height / base.height);
-  const viewport = page.getViewport({ scale });
-  const pixelRatio = Math.min(2, window.devicePixelRatio || 1);
-  const shell = element("div", "slide-stage");
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.floor(viewport.width * pixelRatio);
-  canvas.height = Math.floor(viewport.height * pixelRatio);
-  canvas.style.width = `${Math.floor(viewport.width)}px`;
-  canvas.style.height = `${Math.floor(viewport.height)}px`;
-  shell.append(canvas);
-  stage.replaceChildren(shell);
-  const context = canvas.getContext("2d", { alpha: false });
-  activeRenderTask = page.render({
-    canvasContext: context,
-    viewport,
-    transform: pixelRatio === 1 ? null : [pixelRatio, 0, 0, pixelRatio, 0, 0],
-  });
-  try { await activeRenderTask.promise; } catch (error) { if (error?.name !== "RenderingCancelledException") throw error; }
+  await slideRenderer.show(pageNumber, state?.presentation.pageCount || pageNumber);
 }
 
 function phaseLabel(phase) {
@@ -141,6 +116,7 @@ function phaseLabel(phase) {
 }
 
 function renderQuestion(session) {
+  slideRenderer.deactivate();
   const question = session.activeQuestion;
   const resultsVisible = Boolean(
     session.showResultsOnPresenter || ["results", "revealed"].includes(session.phase)
@@ -243,7 +219,7 @@ function toggleChrome() {
   chromeToggle.setAttribute("aria-pressed", String(hidden));
   chromeToggle.setAttribute("aria-label", hidden ? "Show presenter controls" : "Hide presenter controls");
   chromeToggle.title = hidden ? "Show presenter controls (H)" : "Hide presenter controls (H)";
-  currentSlide = null;
+  slideRenderer.invalidate();
   setTimeout(() => {
     if (state?.session.phase === "slide") {
       renderSlide(state.session.activeSlide).catch((error) => toast(error.message));
@@ -258,7 +234,7 @@ function setJoinStrip(visible) {
   joinStripToggle.setAttribute("aria-pressed", String(visible));
   joinStripToggle.setAttribute("aria-label", visible ? "Hide joining information" : "Show joining information");
   joinStripToggle.title = visible ? "Hide joining information" : "Show joining information";
-  currentSlide = null;
+  slideRenderer.invalidate();
   setTimeout(() => {
     if (state?.session.phase === "slide") {
       renderSlide(state.session.activeSlide).catch((error) => toast(error.message));
@@ -291,6 +267,17 @@ function applyState(message) {
   document.documentElement.style.setProperty("--accent", presentation.theme.accent);
   document.documentElement.style.setProperty("--accent-ink", accentTextColor(presentation.theme.accent));
   loadPresenterTheme(presentation);
+  if (session.syncStatus === "error") {
+    setConnection("Unsynchronized", false);
+    if (session.syncError && session.syncError !== lastSyncError) toast(session.syncError);
+    lastSyncError = session.syncError;
+  } else if (session.syncStatus === "syncing") {
+    setConnection("Syncing", true);
+    lastSyncError = null;
+  } else {
+    setConnection("Live", true);
+    lastSyncError = null;
+  }
   if (session.phase === "slide") renderSlide(session.activeSlide).catch((error) => toast(error.message));
   else if (["open", "results", "revealed"].includes(session.phase)) renderQuestion(session);
   else renderEnded(presentation);
@@ -380,7 +367,7 @@ window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     if (state?.session.phase === "slide") {
-      currentSlide = null;
+      slideRenderer.invalidate();
       renderSlide(state.session.activeSlide).catch((error) => toast(error.message));
     }
   }, 150);

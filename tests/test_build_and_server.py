@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import copy
 import json
+import threading
 from pathlib import Path
 
 import pytest
@@ -10,6 +13,51 @@ from confquiz.build import export_static_site, materialize_slides
 from confquiz.cli import init as init_project
 from confquiz.config import ConfigError, load_firebase_web_config, load_quiz_config
 from confquiz.server import PresenterRuntime, create_app
+
+
+class RecordingWebSocket:
+    def __init__(self):
+        self.messages = []
+
+    async def send_json(self, payload):
+        self.messages.append(copy.deepcopy(payload))
+
+
+class PersistenceStore:
+    def __init__(self, *, blocked: bool = False, failing: bool = False):
+        self.started = threading.Event()
+        self.release = threading.Event()
+        if not blocked:
+            self.release.set()
+        self.failing = failing
+        self.persisted = []
+        self.watched_questions = []
+
+    def persist_state(self, controller):
+        self.started.set()
+        if not self.release.wait(timeout=2):
+            raise TimeoutError("test persistence was not released")
+        if self.failing:
+            raise ConnectionError("Firestore is unavailable")
+        self.persisted.append(copy.deepcopy(controller.state_document()))
+
+    def publish_aggregate(self, _controller, _question):
+        return None
+
+    def stop_response_watch(self):
+        return None
+
+    def load_moderation(self, _controller, _question_id):
+        return None
+
+    def watch_responses(self, _controller, question_id, _callback):
+        self.watched_questions.append(question_id)
+
+
+def activate_slide(controller, page_number):
+    controller._activate(
+        next(index for index, item in enumerate(controller.timeline) if item.slide == page_number)
+    )
 
 
 def receive_until(websocket, predicate, attempts: int = 6):
@@ -104,6 +152,35 @@ def test_preview_websockets_drive_question_and_response(quiz_files):
             assert presenter_updated["session"]["aggregate"]["options"][0]["count"] == 1
 
 
+def test_preview_attendee_answer_is_scoped_to_the_active_question(quiz_files):
+    config_path, quiz = quiz_files
+    slides = materialize_slides(quiz, config_path)
+    runtime = PresenterRuntime(quiz, slides, mode="preview")
+    with (
+        TestClient(create_app(runtime)) as client,
+        client.websocket_connect(f"/ws/presenter?token={runtime.control_token}") as presenter,
+        client.websocket_connect("/ws/attendee?uid=attendee-1") as attendee,
+    ):
+        presenter.receive_json()
+        attendee.receive_json()
+        presenter.send_json({"action": "next"})
+        receive_until(presenter, lambda state: state["session"]["phase"] == "open")
+        receive_until(attendee, lambda state: (state.get("question") or {}).get("id") == "single")
+
+        attendee.send_json({"action": "submit", "answer": "a"})
+        answered = receive_until(attendee, lambda state: state.get("existingAnswer") == "a")
+        assert answered["question"]["id"] == "single"
+
+        for _ in range(4):
+            presenter.send_json({"action": "next"})
+        unanswered = receive_until(
+            attendee,
+            lambda state: (state.get("question") or {}).get("id") == "multiple",
+        )
+        assert unanswered["existingAnswer"] is None
+        assert unanswered["aggregate"]["responseCount"] == 0
+
+
 def test_presenter_token_is_required(quiz_files):
     config_path, quiz = quiz_files
     slides = materialize_slides(quiz, config_path)
@@ -139,6 +216,97 @@ async def test_live_attendee_url_can_be_changed_from_presenter(quiz_files):
 
     with pytest.raises(ValueError, match="absolute HTTP or HTTPS URL"):
         await runtime.handle_presenter_action({"action": "set_attendee_url", "url": "/relative"})
+
+
+@pytest.mark.asyncio
+async def test_live_navigation_broadcasts_before_slow_persistence(quiz_files):
+    config_path, quiz = quiz_files
+    slides = materialize_slides(quiz, config_path)
+    store = PersistenceStore(blocked=True)
+    runtime = PresenterRuntime(quiz, slides, mode="firebase", store=store)
+    runtime.controller.session_id = "session-id"
+    runtime.controller.join_code = "ROOM26"
+    activate_slide(runtime.controller, 10)
+    presenter = RecordingWebSocket()
+    runtime.presenter_clients.add(presenter)
+
+    await runtime.handle_presenter_action({"action": "next"})
+
+    assert presenter.messages[-1]["session"]["activeSlide"] == 11
+    assert presenter.messages[-1]["session"]["syncStatus"] == "syncing"
+    assert store.persisted == []
+    assert await asyncio.to_thread(store.started.wait, 1)
+
+    store.release.set()
+    await asyncio.wait_for(runtime._flush_persistence(), timeout=1)
+    assert store.persisted[-1]["activeSlide"] == 11
+    assert presenter.messages[-1]["session"]["syncStatus"] == "synced"
+
+
+@pytest.mark.asyncio
+async def test_live_persistence_queue_keeps_rapid_navigation_ordered(quiz_files):
+    config_path, quiz = quiz_files
+    slides = materialize_slides(quiz, config_path)
+    store = PersistenceStore(blocked=True)
+    runtime = PresenterRuntime(quiz, slides, mode="firebase", store=store)
+    runtime.controller.session_id = "session-id"
+    runtime.controller.join_code = "ROOM26"
+    activate_slide(runtime.controller, 10)
+    presenter = RecordingWebSocket()
+    runtime.presenter_clients.add(presenter)
+
+    await runtime.handle_presenter_action({"action": "next"})
+    assert await asyncio.to_thread(store.started.wait, 1)
+    await runtime.handle_presenter_action({"action": "next"})
+    await runtime.handle_presenter_action({"action": "previous"})
+
+    assert runtime.controller.state_document()["activeSlide"] == 11
+    assert presenter.messages[-1]["session"]["activeSlide"] == 11
+    store.release.set()
+    await asyncio.wait_for(runtime._flush_persistence(), timeout=1)
+
+    assert [state["activeSlide"] for state in store.persisted] == [11, 12, 11]
+    assert store.persisted[-1] == runtime.controller.state_document()
+    assert presenter.messages[-1]["session"]["syncStatus"] == "synced"
+
+
+@pytest.mark.asyncio
+async def test_live_question_transitions_keep_their_firebase_order(quiz_files):
+    config_path, quiz = quiz_files
+    slides = materialize_slides(quiz, config_path)
+    store = PersistenceStore()
+    runtime = PresenterRuntime(quiz, slides, mode="firebase", store=store)
+    runtime.controller.session_id = "session-id"
+    runtime.controller.join_code = "ROOM26"
+
+    await runtime.handle_presenter_action({"action": "next"})
+    await runtime.handle_presenter_action({"action": "next"})
+    await runtime.handle_presenter_action({"action": "next"})
+    await asyncio.wait_for(runtime._flush_persistence(), timeout=1)
+
+    assert [state["phase"] for state in store.persisted] == ["open", "results", "revealed"]
+    assert runtime.controller.phase == "revealed"
+
+
+@pytest.mark.asyncio
+async def test_live_navigation_continues_when_firebase_is_unavailable(quiz_files):
+    config_path, quiz = quiz_files
+    slides = materialize_slides(quiz, config_path)
+    store = PersistenceStore(failing=True)
+    runtime = PresenterRuntime(quiz, slides, mode="firebase", store=store)
+    runtime.controller.session_id = "session-id"
+    runtime.controller.join_code = "ROOM26"
+    activate_slide(runtime.controller, 10)
+    presenter = RecordingWebSocket()
+    runtime.presenter_clients.add(presenter)
+
+    await runtime.handle_presenter_action({"action": "next"})
+    await asyncio.wait_for(runtime._flush_persistence(), timeout=1)
+
+    assert runtime.controller.state_document()["activeSlide"] == 11
+    assert presenter.messages[-1]["session"]["activeSlide"] == 11
+    assert presenter.messages[-1]["session"]["syncStatus"] == "error"
+    assert "Local presenting will continue" in presenter.messages[-1]["session"]["syncError"]
 
 
 @pytest.mark.asyncio

@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#f3f3f0">
     <title>{{ title }} · Presenter</title>
     <link rel="stylesheet" href="assets/common.css?v=1.1.0">
-    <link rel="stylesheet" href="assets/presenter.css?v=1.7.0">
+    <link rel="stylesheet" href="assets/presenter.css?v=1.8.0">
     <script src="presenter-runtime.js?token={{ token }}"></script>
-    <script type="module" src="assets/presenter.js?v=1.7.0"></script>
+    <script type="module" src="assets/presenter.js?v=1.8.0"></script>
   </head>
   <body class="presenter-body">
     <a class="skip-link" href="#stage">Skip to presentation</a>
@@ -60,7 +60,7 @@
       </div>
       <div class="presenter-deck-status">
         <div class="presenter-deck-line">
-          <span class="connection-pill" data-connection>Connecting</span>
+          <span class="connection-pill" data-connection aria-live="polite">Connecting</span>
           <span class="presenter-deck-count presenter-participant-count"><strong data-participants>0</strong> joined</span>
           <span class="presenter-deck-count presenter-response-count"><strong data-response-count>0</strong> answers</span>
         </div>

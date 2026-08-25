@@ -4,6 +4,7 @@ import hashlib
 import json
 import random
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -13,7 +14,7 @@ from firebase_admin import credentials, firestore
 from google.cloud.firestore_v1 import DELETE_FIELD
 from google.cloud.firestore_v1.base_query import FieldFilter
 
-from confquiz.models import Question, QuizConfig
+from confquiz.models import JOIN_CODE_PATTERN, Question, QuizConfig
 from confquiz.session import SessionController
 
 JOIN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -22,6 +23,13 @@ PRESENTATION_ONLINE_WINDOW = timedelta(minutes=2)
 
 class FirebaseError(RuntimeError):
     """Raised when the live Firebase backend cannot complete an operation."""
+
+
+@dataclass(frozen=True)
+class CodeReleaseResult:
+    code: str
+    session_id: str | None
+    changed: bool
 
 
 class FirebaseStore:
@@ -65,9 +73,12 @@ class FirebaseStore:
             code = code_config.value if code_config.mode == "manual" else self._new_code(code_config.length)
             code_ref = self.db.collection(self.codes_name).document(code)
             existing = code_ref.get()
-            if existing.exists and existing.to_dict().get(
-                "expiresAt", datetime.min.replace(tzinfo=timezone.utc)
-            ) > datetime.now(timezone.utc):
+            existing_data = existing.to_dict() if existing.exists else {}
+            expires_at_value = existing_data.get("expiresAt")
+            code_is_active = existing.exists and existing_data.get("status") != "ended" and (
+                not isinstance(expires_at_value, datetime) or expires_at_value > now
+            )
+            if code_is_active:
                 if code_config.mode == "manual":
                     raise FirebaseError(f"Manual join code {code} is already active")
                 continue
@@ -218,7 +229,11 @@ class FirebaseStore:
         batch.update(self._session_ref(controller.session_id), controller.state_document())
         batch.update(
             self.db.collection(self.codes_name).document(controller.join_code),
-            {"status": "ended", "sessionId": DELETE_FIELD},
+            {
+                "status": "ended",
+                "sessionId": DELETE_FIELD,
+                "releasedAt": firestore.SERVER_TIMESTAMP,
+            },
         )
         batch.set(
             self._presentation_ref(),
@@ -233,6 +248,80 @@ class FirebaseStore:
         batch.commit()
         self.stop_response_watch()
         self.stop_participant_watch()
+
+    def release_code(self, code: str) -> CodeReleaseResult:
+        normalized_code = code.strip().upper()
+        if not JOIN_CODE_PATTERN.fullmatch(normalized_code):
+            raise FirebaseError("Join code must be 4 to 12 characters using A-Z and 2-9")
+
+        code_ref = self.db.collection(self.codes_name).document(normalized_code)
+        code_snapshot = code_ref.get()
+        if not code_snapshot.exists:
+            raise FirebaseError(f"Join code {normalized_code} does not exist")
+
+        code_data = code_snapshot.to_dict()
+        presentation_id = self.quiz.presentation.id
+        if code_data.get("presentationId") != presentation_id:
+            raise FirebaseError(
+                f"Join code {normalized_code} does not belong to presentation {presentation_id}"
+            )
+
+        session_id = code_data.get("sessionId")
+        if session_id is not None and (not isinstance(session_id, str) or not session_id):
+            raise FirebaseError(f"Join code {normalized_code} has an invalid session mapping")
+        if code_data.get("status") == "ended" and not session_id:
+            return CodeReleaseResult(normalized_code, None, changed=False)
+
+        session_ref = None
+        session_snapshot = None
+        if session_id:
+            session_ref = self._session_ref(session_id)
+            session_snapshot = session_ref.get()
+            if (
+                session_snapshot.exists
+                and session_snapshot.to_dict().get("presentationId") != presentation_id
+            ):
+                raise FirebaseError(
+                    f"Join code {normalized_code} points to a different presentation's session"
+                )
+
+        presentation_ref = self._presentation_ref()
+        presentation_snapshot = presentation_ref.get()
+        batch = self.db.batch()
+        if session_ref is not None and session_snapshot is not None and session_snapshot.exists:
+            batch.update(
+                session_ref,
+                {
+                    "status": "ended",
+                    "phase": "ended",
+                    "activeSlide": None,
+                    "activeQuestionId": None,
+                },
+            )
+        batch.update(
+            code_ref,
+            {
+                "status": "ended",
+                "sessionId": DELETE_FIELD,
+                "releasedAt": firestore.SERVER_TIMESTAMP,
+            },
+        )
+        if (
+            session_id
+            and presentation_snapshot.exists
+            and presentation_snapshot.to_dict().get("sessionMarker")
+            == self._session_marker(session_id)
+        ):
+            batch.set(
+                presentation_ref,
+                {
+                    "status": "ended",
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                },
+                merge=True,
+            )
+        batch.commit()
+        return CodeReleaseResult(normalized_code, session_id, changed=True)
 
     def list_sessions(self, limit: int = 20) -> list[dict[str, Any]]:
         query = (

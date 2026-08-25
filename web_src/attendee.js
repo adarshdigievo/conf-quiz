@@ -10,6 +10,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import { answerStateFromPreview } from "./attendee-state.js";
 import { element, renderResults } from "./results.js";
 
 const runtime = window.CONFQUIZ_RUNTIME;
@@ -610,10 +611,7 @@ async function connectPreview() {
       currentSession = message.session;
       currentQuestion = message.question;
       currentAggregate = message.aggregate;
-      if (message.existingAnswer !== undefined && message.existingAnswer !== null) {
-        existingAnswer = message.existingAnswer;
-        submitted = true;
-      }
+      ({ existingAnswer, submitted } = answerStateFromPreview(message));
       render();
     }
   });

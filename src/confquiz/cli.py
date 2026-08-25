@@ -20,7 +20,7 @@ from confquiz.server import PresenterRuntime, create_app
 
 app = typer.Typer(no_args_is_help=True, help="Build and run Firebase-backed conference quizzes.")
 firebase_app = typer.Typer(no_args_is_help=True, help="Generate Firebase configuration files.")
-sessions_app = typer.Typer(no_args_is_help=True, help="Inspect and clean live quiz sessions.")
+sessions_app = typer.Typer(no_args_is_help=True, help="Inspect, release, and clean live quiz sessions.")
 app.add_typer(firebase_app, name="firebase")
 app.add_typer(sessions_app, name="sessions")
 
@@ -264,6 +264,35 @@ def list_sessions(
         typer.echo(
             f"{session['id']}  {session.get('joinCode', '—')}  {session.get('status', 'unknown')}  {created}"
         )
+
+
+@sessions_app.command("release")
+def release_session(
+    code: Annotated[str, typer.Argument(help="Join code to release.")],
+    config: Annotated[
+        Path, typer.Option("--config", "-c", help="Quiz YAML configuration.")
+    ] = Path("quiz.yml"),
+    credential: Annotated[Path | None, typer.Option("--credentials")] = None,
+) -> None:
+    """Release one join code and end its room without deleting session data."""
+    store = None
+    try:
+        quiz, _, credential_path = _load_live(config, credential)
+        store = FirebaseStore(quiz, credential_path)
+        result = store.release_code(code)
+    except Exception as error:
+        _fail(error)
+    finally:
+        if store is not None:
+            store.close()
+
+    if not result.changed:
+        typer.echo(f"Join code {result.code} is already released.")
+        return
+    typer.secho(f"Released join code {result.code}.", fg=typer.colors.GREEN)
+    if result.session_id:
+        typer.echo(f"Ended session {result.session_id}.")
+    typer.echo("No session data was deleted.")
 
 
 @sessions_app.command("clean")
