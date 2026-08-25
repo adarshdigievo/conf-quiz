@@ -6,16 +6,18 @@
     <meta name="theme-color" content="#f3f3f0">
     <title>{{ title }} · Presenter</title>
     <link rel="stylesheet" href="assets/common.css?v=1.1.0">
-    <link rel="stylesheet" href="assets/presenter.css?v=1.8.0">
+    <link rel="stylesheet" href="assets/presenter.css?v=1.12.0">
     <script src="presenter-runtime.js?token={{ token }}"></script>
-    <script type="module" src="assets/presenter.js?v=1.8.0"></script>
+    <script type="module" src="assets/presenter.js?v=1.11.0"></script>
   </head>
   <body class="presenter-body">
     <a class="skip-link" href="#stage">Skip to presentation</a>
     <aside class="join-strip" data-join-strip hidden aria-label="Audience joining information">
-      <span>Join</span>
-      <strong data-join-code>—</strong>
-      <span data-join-url></span>
+      <div class="join-strip-content">
+        <span class="join-strip-label">Join</span>
+        <strong data-join-code>—</strong>
+        <span class="join-strip-url" data-join-url></span>
+      </div>
       <button type="button" data-hide-join-strip aria-label="Hide joining information">×</button>
     </aside>
     <main id="stage" class="presenter-stage" tabindex="-1">

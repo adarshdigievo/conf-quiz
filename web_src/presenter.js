@@ -1,4 +1,6 @@
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import { splitJoinUrl } from "./presenter-join.js";
+import { presenterOptions } from "./presenter-question.js";
 import { element, renderResults } from "./results.js";
 import { SlideRenderer } from "./slide-renderer.js";
 
@@ -115,14 +117,33 @@ function phaseLabel(phase) {
   }[phase] || phase;
 }
 
+function renderQuestionOptions(question, options) {
+  const section = element("section", "question-options-section");
+  section.setAttribute("aria-label", "Answer options");
+  const heading = question.type === "ranking" ? "Options to rank" : "Answer options";
+  const list = element("ol", `question-options${options.length > 8 ? " is-dense" : ""}`);
+  for (const option of options) {
+    const item = element("li", "question-option");
+    item.append(
+      element("span", "question-option-marker", option.marker),
+      element("span", "question-option-label", option.label),
+    );
+    list.append(item);
+  }
+  section.append(element("p", "question-options-label", heading), list);
+  return section;
+}
+
 function renderQuestion(session) {
   slideRenderer.deactivate();
   const question = session.activeQuestion;
+  const options = presenterOptions(question);
   const resultsVisible = Boolean(
     session.showResultsOnPresenter || ["results", "revealed"].includes(session.phase)
   );
   const shell = element("div", "question-stage");
   shell.classList.toggle("results-hidden", !resultsVisible);
+  shell.classList.toggle("has-options", !resultsVisible && options.length > 0);
   const promptPane = element("div", "question-prompt-pane");
   const topline = element("div", "question-topline");
   const stats = element("div", "question-audience-stats");
@@ -134,6 +155,7 @@ function renderQuestion(session) {
   topline.append(element("p", "eyebrow", question.type.replaceAll("_", " ")), stats);
   promptPane.append(topline, element("h1", "", question.prompt));
   if (question.description) promptPane.append(element("p", "question-description", question.description));
+  if (!resultsVisible && options.length) promptPane.append(renderQuestionOptions(question, options));
   const meta = element("div", "question-meta");
   const chip = element("span", `phase-chip${session.phase === "open" ? " is-open" : ""}`, phaseLabel(session.phase));
   meta.append(chip);
@@ -248,6 +270,16 @@ function setJoinScreen(visible) {
   joinToggle.classList.toggle("is-active", visible);
 }
 
+function renderJoinUrl(node, value) {
+  if (!node.classList.contains("join-strip-url")) {
+    node.textContent = value;
+    return;
+  }
+  const { base, parameters } = splitJoinUrl(value);
+  node.replaceChildren(element("strong", "join-strip-url-base", base));
+  if (parameters) node.append(element("span", "join-strip-url-params", parameters));
+}
+
 function applyState(message) {
   state = message;
   const { session, presentation } = message;
@@ -256,7 +288,7 @@ function applyState(message) {
   participantCount.textContent = session.participantCount;
   responseCount.textContent = session.responseCount;
   joinCodes.forEach((node) => { node.textContent = session.joinCode; });
-  joinUrls.forEach((node) => { node.textContent = session.joinUrl; });
+  joinUrls.forEach((node) => { renderJoinUrl(node, session.joinUrl); });
   qrImage.src = `${runtime.qrUrl}&v=${encodeURIComponent(`${session.id}:${session.joinUrl}`)}`;
   if (document.activeElement !== attendeeUrlInput) attendeeUrlInput.value = session.attendeeBaseUrl || "";
   attendeeUrlInput.disabled = !session.attendeeUrlEditable;

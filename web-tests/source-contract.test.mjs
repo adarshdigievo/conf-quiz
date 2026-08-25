@@ -96,6 +96,24 @@ test("presenter participant count remains visible during questions", () => {
   assert.doesNotMatch(presenterCss, /is-question-active\s+\.presenter-participant-count\s*\{[^}]*display:\s*none/s);
 });
 
+test("presenter centers the complete persistent join instruction", () => {
+  assert.match(presenterTemplate, /class="join-strip-content"/);
+  assert.match(presenterTemplate, /class="join-strip-url" data-join-url/);
+  assert.match(presenterCss, /--join-strip-height:/);
+  assert.match(presenterCss, /\.join-strip-content\s*\{[^}]*display:\s*flex[^}]*justify-content:\s*center/s);
+  assert.match(presenterCss, /\.join-strip \[data-join-code\]\s*\{[^}]*height:\s*calc\(100% - \.2rem\)[^}]*font-size:\s*clamp/s);
+  assert.match(presenter, /splitJoinUrl\(value\)/);
+  assert.match(presenterCss, /\.join-strip-url-base\s*\{[^}]*font-weight:\s*850/s);
+  assert.match(presenterCss, /\.join-strip-url-params\s*\{[^}]*color:\s*var\(--muted\)[^}]*font-size:\s*\.82em/s);
+});
+
+test("presenter shows option questions before the first response", () => {
+  assert.match(presenter, /presenterOptions\(question\)/);
+  assert.match(presenter, /renderQuestionOptions\(question, options\)/);
+  assert.match(presenterCss, /\.question-options\s*\{/);
+  assert.match(presenterCss, /\.question-option-marker\s*\{/);
+});
+
 test("presenter keeps secondary controls out of the default toolbar", () => {
   const menuStart = presenterTemplate.indexOf('class="session-menu-popover"');
   const shareControl = presenterTemplate.indexOf("data-toggle-slide-sharing");

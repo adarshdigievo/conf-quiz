@@ -116,7 +116,13 @@ export function renderResults(container, question, aggregate) {
     );
     return;
   }
-  if (!aggregate.responseCount) {
+  const optionResultsCanStartEmpty = [
+    "single_choice",
+    "multiple_choice",
+    "yes_no",
+    "ranking",
+  ].includes(question.type);
+  if (!aggregate.responseCount && !optionResultsCanStartEmpty) {
     container.append(element("div", "result-empty", "Waiting for the first response…"));
     return;
   }
